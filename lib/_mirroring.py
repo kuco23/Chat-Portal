@@ -1,42 +1,44 @@
-from .entities import UserEntity, MessageEntity
-from .database import Database
-from .messaging import MessageService, Message
+from ._objects import Message, User
+from ._entities import UserEntity
+from ._database import Database
+from ._messaging import SocialPlatform
 
-class Mirror:
+class Mirroring:
 
     def __init__(self,
-        social_platform: MessageService,
-        database: Database
+        database: Database,
+        social_platform: SocialPlatform
     ):
-        self.social_platform = social_platform
         self.database = database
+        self.social_platform = social_platform
 
-    def initNewUser(self, user_id: str) -> UserEntity:
+    def initNewUser(self, user_id: str) -> User:
         user = self.database.addUser(user_id)
         best_match = self._tryFindUserMatch(user, None)
         if best_match is not None: # match found
-            self.database.matchUsers(user, best_match)
+            self.database.matchUsers(user.id, best_match.id)
         return user
 
     def receiveMessage(self, from_user_id: str, message: Message):
         user = self.database.findUser(from_user_id)
         if user is None:
             user = self.initNewUser(from_user_id)
-        if user.match is None:
+        if user.match_id is None:
             match = self._tryFindUserMatch(user, message.content)
             if match is not None:
-                self.database.matchUsers(user, match)
+                self.database.matchUsers(user.id, match.id)
+                user.match_id = match.id
             else: # no match possible => end here
                 return
-        self.social_platform.sendMessage(user.id, user.match.id, message.content)
-        self.database.addMessage(user, user.match, message)
+        self.social_platform.sendMessage(user.id, user.match_id, message.content)
+        self.database.addMessage(user.id, message)
 
     ############################ INTERNAL METHODS ############################
 
-    def _tryFindUserMatch(self, user: UserEntity, first_message: str | None) -> UserEntity | None:
+    def _tryFindUserMatch(self, user: User, first_message: str | None) -> User | None:
         best_match = None
         best_score = -1
-        for test_user in self.database.fetchMatchCandidates(user):
+        for test_user in self.database.fetchMatchCandidates(user.id):
             score = self._scoreUserPair(user, test_user, first_message)
             if score > best_score:
                 best_score = score
@@ -44,8 +46,8 @@ class Mirror:
         if self._scoreOkToMatch(best_score):
             return best_match
 
-    def _scoreUserPair(self, user1: UserEntity, user2: UserEntity, user1_message: str | None) -> int:
-        return 0
+    def _scoreUserPair(self, user1: User, user2: User, user1_message: str | None) -> int:
+        return 100
 
     # min score for two users to be considered a match
     @staticmethod
