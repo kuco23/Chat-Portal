@@ -1,28 +1,26 @@
-from ._objects import Message, User
-from ._entities import UserEntity
+from .interface import IMirroring, ISocialPlatform, SocialMessage, SocialUser
 from ._database import Database
-from ._messaging import SocialPlatform
 
-class Mirroring:
+class Mirroring(IMirroring):
 
     def __init__(self,
         database: Database,
-        social_platform: SocialPlatform
+        social_platform: ISocialPlatform
     ):
         self.database = database
         self.social_platform = social_platform
 
-    def initNewUser(self, user_id: str) -> User:
+    def initNewUser(self, user_id: str) -> SocialUser:
         user = self.database.addUser(user_id)
         best_match = self._tryFindUserMatch(user, None)
         if best_match is not None: # match found
             self.database.matchUsers(user.id, best_match.id)
         return user
 
-    def receiveMessage(self, from_user_id: str, message: Message):
-        user = self.database.findUser(from_user_id)
+    def receiveMessage(self, message: SocialMessage):
+        user = self.database.findUser(message.from_user_id)
         if user is None:
-            user = self.initNewUser(from_user_id)
+            user = self.initNewUser(message.from_user_id)
         if user.match_id is None:
             match = self._tryFindUserMatch(user, message.content)
             if match is not None:
@@ -30,12 +28,10 @@ class Mirroring:
                 user.match_id = match.id
             else: # no match possible => end here
                 return
-        self.social_platform.sendMessage(user.id, user.match_id, message.content)
-        self.database.addMessage(user.id, message)
+        self.social_platform.sendMessage(user.match_id, message.content)
+        self.database.addMessage(user.match_id, message)
 
-    ############################ INTERNAL METHODS ############################
-
-    def _tryFindUserMatch(self, user: User, first_message: str | None) -> User | None:
+    def _tryFindUserMatch(self, user: SocialUser, first_message: str | None) -> SocialUser | None:
         best_match = None
         best_score = -1
         for test_user in self.database.fetchMatchCandidates(user.id):
@@ -46,7 +42,7 @@ class Mirroring:
         if self._scoreOkToMatch(best_score):
             return best_match
 
-    def _scoreUserPair(self, user1: User, user2: User, user1_message: str | None) -> int:
+    def _scoreUserPair(self, user1: SocialUser, user2: SocialUser, user1_message: str | None) -> int:
         return 100
 
     # min score for two users to be considered a match
