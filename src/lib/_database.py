@@ -13,12 +13,11 @@ class Database(IDatabase):
             create_database(db_url)
         Base.metadata.create_all(self.engine)
 
-    def addUser(self, user_id: str) -> SocialUser:
+    def addUser(self, user: SocialUser):
         with Session(self.engine) as session:
-            user = UserEntity(social_id=user_id)
-            session.add(user)
+            userEntity = UserEntity(social_id=user.id, username=user.username, full_name=user.full_name, gender=user.gender)
+            session.add(userEntity)
             session.commit()
-            return self._userEntityToObject(user)
 
     def addMessage(self, to_user_id: str, message: SocialMessage):
         with Session(self.engine) as session:
@@ -71,7 +70,14 @@ class Database(IDatabase):
                 user_entity.last_message.from_user_id,
                 user_entity.last_message.content
             )
-        return SocialUser(user_entity.social_id, user_entity.match_id, last_message)
+        return SocialUser(
+            user_entity.social_id,
+            user_entity.username,
+            user_entity.full_name,
+            user_entity.gender,
+            user_entity.match_id,
+            last_message
+        )
 
     @staticmethod
     def _messageEntityToObject(message_entity: MessageEntity) -> SocialMessage:

@@ -2,10 +2,6 @@ from typing import List
 from abc import ABC
 from dataclasses import dataclass
 
-class ISocialPlatform(ABC):
-    def sendMessage(self, to_user_id: str, message: str):
-        raise NotImplementedError()
-
 @dataclass
 class SocialMessage:
     id: str
@@ -15,8 +11,25 @@ class SocialMessage:
 @dataclass
 class SocialUser:
     id: str
+    username: str | None
+    full_name: str | None
+    gender: bool | None
     match_id: str | None
     last_message: SocialMessage | None
+
+class ISocialPlatform(ABC):
+
+    def sendMessage(self, to_user_id: str, message: str) -> bool:
+        raise NotImplementedError()
+
+    def getNewUsers(self) -> List[SocialUser]:
+        raise NotImplementedError()
+
+    def getNewMessages(self) -> List[SocialMessage]:
+        raise NotImplementedError()
+
+    def getUser(self, user_id: str) -> SocialUser:
+        raise NotImplementedError()
 
 class IDatabase(ABC):
 

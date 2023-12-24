@@ -1,5 +1,10 @@
+from enum import IntEnum
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import mapped_column, relationship, Mapped, DeclarativeBase
+
+class Gender(IntEnum):
+    FEMALE = 0
+    MALE = 1
 
 class Base(DeclarativeBase):
     pass
@@ -9,6 +14,9 @@ class UserEntity(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     social_id: Mapped[str] = mapped_column(unique=True)
+    username: Mapped[str] = mapped_column(nullable=True)
+    full_name: Mapped[str] = mapped_column(nullable=True)
+    gender: Mapped[bool] = mapped_column(nullable=True)
     match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
     # relationships
     last_message: Mapped["MessageEntity"] = relationship("MessageEntity", back_populates="from_user", uselist=False)
