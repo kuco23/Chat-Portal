@@ -1,34 +1,31 @@
+from ..lib._entities import User, Message
 from ..lib import Database
-from ..lib.interface import SocialMessage
 
-SQLITE_INMEMORY_URL = "sqlite+pysqlite:///:memory:"
 
-database = Database(SQLITE_INMEMORY_URL)
+database = Database("sqlite+pysqlite:///:memory:")
 
 for user_id in ["user1", "user2", "user3"]:
-    database.addUser(user_id)
+    database.addUser(User(id=user_id))
     user = database.findUser(user_id)
     assert user is not None
     assert user.id == user_id
     assert user.match_id is None
-    assert user.last_message is None
+    assert user.last_message_id is None
 
 for i, user_id in enumerate(["user1", "user2", "user3"]):
-    message = SocialMessage(str(i), user_id, "content")
+    message = Message(id=str(i), from_user_id=user_id, content="hello")
     database.addMessage(user_id, message)
     user = database.findUser(user_id)
     assert user is not None
     assert user.id == user_id
-    assert user.last_message is not None
-    assert user.last_message.id == message.id
+    assert user.last_message_id == message.id
 
-message = SocialMessage("4", "user1", "new message")
+message = Message(id="4", from_user_id="user1", content="new message")
 database.addMessage("user2", message)
 user = database.findUser("user1")
 assert user is not None
 assert user.id == "user1"
-assert user.last_message is not None
-assert user.last_message.id == message.id
+assert user.last_message_id == message.id
 
 database.matchUsers("user1", "user2")
 for user_id in ["user1", "user2"]:
@@ -41,3 +38,5 @@ user = database.findUser("user3")
 assert user is not None
 assert user.id == "user3"
 assert user.match_id is None
+
+print("All tests for _database.py passed")

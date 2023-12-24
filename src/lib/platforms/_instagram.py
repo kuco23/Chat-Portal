@@ -1,6 +1,6 @@
-from typing import List, Dict
+from typing import List
 from instagrapi import Client
-from ..interface import ISocialPlatform, SocialUser, SocialMessage
+from ...interface import ISocialPlatform, User, Message, MessageBatch
 
 
 THREAD_FETCH_LIMIT = 40
@@ -23,13 +23,13 @@ class Instagram(ISocialPlatform):
             self.client.direct_send_seen(int(msg.thread_id))
         return True # fix to return whether message was successfully sent
 
-    def getNewUsers(self) -> List[SocialUser]:
+    def getNewUsers(self) -> List[User]:
         '''
             get new users from new pending messages
             and approve their message requests, so
             they can be seen in the direct_threads
         '''
-        users: List[SocialUser] = []
+        users: List[User] = []
         threads = self.client.direct_pending_inbox()
         for thread in threads:
             if thread.id is not None:
@@ -37,32 +37,33 @@ class Instagram(ISocialPlatform):
             user_id = thread.messages[0].user_id
             if user_id is not None:
                 user_info = thread.users[0]
-                users.append(SocialUser(user_id, user_info.username, user_info.full_name, None, None, None))
+                users.append(User(user_id, username=user_info.username, full_name=user_info.full_name))
         return users
 
-    def getNewMessages(self) -> Dict[int, List[SocialMessage]]:
+    def getNewMessages(self) -> List[MessageBatch]:
         '''
             get new messages from all threads and mark them as seen
             Return: dictionary of thread_id -> list of messages,
             where messages should be sorted by timestamp
         '''
-        messages: Dict[int, List[SocialMessage]] = dict()
+        message_batches: List[MessageBatch] = []
         threads = self.client.direct_threads(
             THREAD_FETCH_LIMIT,
             selected_filter="unread",
             thread_message_limit=THREAD_MSG_LIMIT
         )
         for thread in threads:
-            thread_id = thread.messages[0].thread_id
-            if thread_id is not None:
-                self.client.direct_send_seen(thread_id)
-                messages[thread_id] = [
-                    SocialMessage(msg.id, msg.user_id, msg.text)
-                    for msg in thread.messages
-                    if msg.user_id is not None and msg.text is not None
-                ]
-        return messages
+            user_id = thread.messages[0].user_id
+            if user_id is None or thread.id is None:
+                continue
+            message_batch = MessageBatch(user_id, [])
+            self.client.direct_send_seen(int(thread.id))
+            for message in thread.messages:
+                if message.user_id != user_id or message.text is  None:
+                    continue
+                message_batch.socialMessages.append(Message(message.id, user_id, message.text))
+        return message_batches
 
-    def getUser(self, user_id: str) -> SocialUser:
+    def getUser(self, user_id: str) -> User:
         user_info = self.client.user_info(user_id)
-        return SocialUser(user_id, user_info.username, user_info.full_name, None, None, None)
+        return User(user_id, username=user_info.username, full_name=user_info.full_name)

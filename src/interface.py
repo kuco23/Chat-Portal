@@ -1,43 +1,44 @@
 from typing import List
 from abc import ABC
 from dataclasses import dataclass
+from .lib._entities import User, Message
+
 
 @dataclass
-class SocialMessage:
-    id: str
+class MessageBatch:
     from_user_id: str
-    content: str
+    socialMessages: List[Message]
 
-@dataclass
-class SocialUser:
-    id: str
-    username: str | None
-    full_name: str | None
-    gender: bool | None
-    match_id: str | None
-    last_message: SocialMessage | None
+    def __iter__(self):
+        return iter(self.socialMessages)
+
+    def __getitem__(self, i):
+        return self.socialMessages.__getitem__(i)
+
+    def __len__(self):
+        return self.socialMessages.__len__()
 
 class ISocialPlatform(ABC):
 
     def sendMessage(self, to_user_id: str, message: str) -> bool:
         raise NotImplementedError()
 
-    def getNewUsers(self) -> List[SocialUser]:
+    def getNewUsers(self) -> List[User]:
         raise NotImplementedError()
 
-    def getNewMessages(self) -> List[SocialMessage]:
+    def getNewMessages(self) -> List[MessageBatch]:
         raise NotImplementedError()
 
-    def getUser(self, user_id: str) -> SocialUser:
+    def getUser(self, user_id: str) -> User:
         raise NotImplementedError()
 
 class IDatabase(ABC):
 
-    def addUser(self, user_id: str) -> SocialUser:
+    def addUser(self, user_id: str) -> User:
         raise NotImplementedError()
 
     # replaces the old last_message with a new message
-    def addMessage(self, to_user_id: str, message: SocialMessage):
+    def addMessage(self, to_user_id: str, message: Message):
         raise NotImplementedError()
 
     # matches a user with another user
@@ -45,17 +46,17 @@ class IDatabase(ABC):
         raise NotImplementedError()
 
     # fetches a user from the database
-    def findUser(self, user_id: str) -> SocialUser | None:
+    def findUser(self, user_id: str) -> User | None:
         raise NotImplementedError()
 
     # fetches all users that are candidates for matching with the given user
-    def fetchMatchCandidates(self, user_id: str) -> List[SocialUser]:
+    def fetchMatchCandidates(self, user_id: str) -> List[User]:
         raise NotImplementedError()
 
-class IMirroring(ABC):
+class IPortal(ABC):
 
-    def initNewUser(self, user_id: str) -> SocialUser:
+    def initNewUser(self, user_id: str) -> User:
         raise NotImplementedError()
 
-    def receiveMessage(self, message: SocialMessage):
+    def receiveMessageBatch(self, message: MessageBatch):
         raise NotImplementedError()

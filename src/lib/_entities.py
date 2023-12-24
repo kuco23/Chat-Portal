@@ -9,26 +9,29 @@ class Gender(IntEnum):
 class Base(DeclarativeBase):
     pass
 
-class UserEntity(Base):
+class User(Base):
     __tablename__ = "user"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    social_id: Mapped[str] = mapped_column(unique=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(nullable=True)
-    full_name: Mapped[str] = mapped_column(nullable=True)
+    full_name: Mapped[str] = mapped_column(nullable=True) # not obtainable with instagrapi
     gender: Mapped[bool] = mapped_column(nullable=True)
     match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
+    last_message_id: Mapped[str] = mapped_column(ForeignKey('message.id'), nullable=True)
     # relationships
-    last_message: Mapped["MessageEntity"] = relationship("MessageEntity", back_populates="from_user", uselist=False)
-    match: Mapped["UserEntity"] = relationship("UserEntity", remote_side=[id], uselist=False)
+    match: Mapped["User"] = relationship("User", remote_side=[id], uselist=False)
 
-class MessageEntity(Base):
+    def __init__(self, id: str, **kwargs):
+        super().__init__(id=id, **kwargs)
+
+class Message(Base):
     __tablename__ = "message"
 
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    social_id: Mapped[str] = mapped_column(unique=True)
+    id: Mapped[str] = mapped_column(primary_key=True)
     content: Mapped[str] = mapped_column()
     from_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
-    to_user_id: Mapped[str] = mapped_column()
-    # relationships
-    from_user: Mapped["UserEntity"] = relationship("UserEntity", back_populates="last_message")
+    to_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
+
+    # to_user_id is not required at object construction, only when the object is stored to the database
+    def __init__(self, id: str, from_user_id: str, content: str, **kwargs):
+        super().__init__(id=id, from_user_id=from_user_id, content=content, **kwargs)

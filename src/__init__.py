@@ -1,1 +1,1 @@
-from .lib import Mirroring, Database, Instagram
+from .lib import Portal, Database, Instagram

@@ -1,9 +1,10 @@
-from time import sleep
-from .interface import IMirroring, ISocialPlatform, SocialMessage, SocialUser
+from typing import List
+from ..interface import IPortal, ISocialPlatform, MessageBatch
+from ._entities import User
 from ._database import Database
 
 
-class Mirroring(IMirroring):
+class Portal(IPortal):
 
     def __init__(self,
         database: Database,
@@ -13,42 +14,40 @@ class Mirroring(IMirroring):
         self.social_platform = social_platform
 
     def runStep(self):
-        """
-        Main loop - listens for the messages
-        """
         users = self.social_platform.getNewUsers()
         for user in users:
             self.initNewUser(user)
         messages = self.social_platform.getNewMessages()
         for message in messages:
-            self.receiveMessage(message)
+            self.receiveMessageBatch(message)
 
-    def initNewUser(self, user: SocialUser):
+    def initNewUser(self, user: User):
         self.database.addUser(user)
 
-    def receiveMessage(self, message: SocialMessage):
-        user = self.database.findUser(message.from_user_id)
+    def receiveMessageBatch(self, messages: MessageBatch):
+        if len(messages) == 0: return
+        user = self.database.findUser(messages.from_user_id)
         if user is None:
-            # this case should not really happen, because
-            # before message received, user should be added
-            user = self.social_platform.getUser(message.from_user_id)
+            # should not happen (messages should be received only from added users)
+            user = self.social_platform.getUser(messages.from_user_id)
             self.initNewUser(user)
         if user.match_id is None:
-            match = self._tryFindUserMatch(user, message.content)
+            match = self._tryFindUserMatch(user, messages)
             if match is not None:
                 self.database.matchUsers(user.id, match.id)
                 user.match_id = match.id
             else: # no match possible => end here
                 return
-        processed_message = self._processMessage(message, user.match_id)
-        if self.social_platform.sendMessage(user.match_id, processed_message):
-            self.database.addMessage(user.match_id, message)
+        processed_messages = self._processMessageBatch(messages, user.match_id)
+        for processed_message in processed_messages:
+            self.social_platform.sendMessage(user.match_id, processed_message)
+        self.database.addMessage(user.match_id, messages.socialMessages[-1])
 
-    def _tryFindUserMatch(self, user: SocialUser, first_message: str) -> SocialUser | None:
+    def _tryFindUserMatch(self, user: User, initial_message_batch: MessageBatch) -> User | None:
         best_match = None
         best_score = -1
         for test_user in self.database.fetchMatchCandidates(user.id):
-            score = self._scoreUserPair(user, test_user, first_message)
+            score = self._scoreUserPair(user, test_user, initial_message_batch)
             if score > best_score:
                 best_score = score
                 best_match = test_user
@@ -59,10 +58,10 @@ class Mirroring(IMirroring):
     # this is necessary, e.g. when this.user is a woman but sender and the match are men
     # e.g. the message is "how does a girl like you find herself on this app?"
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
-    def _processMessage(self, message: SocialMessage, to_user_id: str) -> str:
-        return message.content
+    def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[str]:
+        return [msg.content for msg in messages]
 
-    def _scoreUserPair(self, user1: SocialUser, user2: SocialUser, user1_message: str | None) -> int:
+    def _scoreUserPair(self, user1: User, user2: User, user1_message_batch: str | MessageBatch) -> int:
         return 100
 
     # min score for two users to be considered a match
