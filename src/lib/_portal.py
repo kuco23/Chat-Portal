@@ -1,6 +1,6 @@
 from typing import List
 from ..interface import IPortal, ISocialPlatform, MessageBatch
-from ._entities import User
+from ._entities import User, ProcessedMessage
 from ._database import Database
 
 
@@ -15,22 +15,23 @@ class Portal(IPortal):
 
     def runStep(self):
         users = self.social_platform.getNewUsers()
-        for user in users:
-            self.initNewUser(user)
-        messages = self.social_platform.getNewMessages()
-        for message in messages:
-            self.receiveMessageBatch(message)
+        self.database.addUsers(users)
+        batches = self.social_platform.getNewMessages()
+        for batch in batches:
+            self._receiveMessageBatch(batch)
 
-    def initNewUser(self, user: User):
-        self.database.addUser(user)
-
-    def receiveMessageBatch(self, messages: MessageBatch):
+    def _receiveMessageBatch(self, messages: MessageBatch):
         if len(messages) == 0: return
         user = self.database.findUser(messages.from_user_id)
+        # if user is not in the database, extract their info and add them
+        # should not happen (messages should be received only from added users)
         if user is None:
-            # should not happen (messages should be received only from added users)
             user = self.social_platform.getUser(messages.from_user_id)
-            self.initNewUser(user)
+            self.database.addUsers([user])
+        # store messages to the database (they need to be available before match finding)
+        for message in messages:
+            self.database.addMessage(message, None)
+        # try to match the user with another
         if user.match_id is None:
             match = self._tryFindUserMatch(user, messages)
             if match is not None:
@@ -38,10 +39,18 @@ class Portal(IPortal):
                 user.match_id = match.id
             else: # no match possible => end here
                 return
-        processed_messages = self._processMessageBatch(messages, user.match_id)
-        for processed_message in processed_messages:
-            self.social_platform.sendMessage(user.match_id, processed_message)
-        self.database.addMessage(user.match_id, messages.socialMessages[-1])
+        # if match is available, then process the message and send to the match
+        self._processAndForwardMessages(user)
+
+    def _processAndForwardMessages(self, user: User):
+        assert user.match_id is not None, "user should have a match at message forward"
+        unsent_messages = self.database.unsentMessagesFrom(user)
+        processed_messages = self._processMessageBatch(MessageBatch(user.id, unsent_messages), user.match_id)
+        assert len(processed_messages) == len(unsent_messages), "each message should be processed into exactly one other message"
+        for original_message, processed_message in zip(unsent_messages, processed_messages):
+            self.social_platform.sendMessage(user.match_id, processed_message.content)
+            self.database.markMessageSent(original_message, user.match_id)
+            self.database.addProcessedMessage(processed_message)
 
     def _tryFindUserMatch(self, user: User, initial_message_batch: MessageBatch) -> User | None:
         best_match = None
@@ -58,8 +67,8 @@ class Portal(IPortal):
     # this is necessary, e.g. when this.user is a woman but sender and the match are men
     # e.g. the message is "how does a girl like you find herself on this app?"
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
-    def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[str]:
-        return [msg.content for msg in messages]
+    def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
+        return [ProcessedMessage(msg.id, msg.content) for msg in messages]
 
     def _scoreUserPair(self, user1: User, user2: User, user1_message_batch: str | MessageBatch) -> int:
         return 100

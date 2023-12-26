@@ -29,9 +29,19 @@ class Message(Base):
 
     id: Mapped[str] = mapped_column(primary_key=True)
     content: Mapped[str] = mapped_column()
+    timestamp: Mapped[float] = mapped_column()
     from_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
-    to_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
+    to_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True) # if it's null then it was not sent
 
     # to_user_id is not required at object construction, only when the object is stored to the database
-    def __init__(self, id: str, from_user_id: str, content: str, **kwargs):
-        super().__init__(id=id, from_user_id=from_user_id, content=content, **kwargs)
+    def __init__(self, id: str, from_user_id: str, content: str, timestamp: float, **kwargs):
+        super().__init__(id=id, from_user_id=from_user_id, content=content, timestamp=timestamp, **kwargs)
+
+class ProcessedMessage(Base):
+    __tablename__ = "processed_message"
+    id: Mapped[str] = mapped_column(primary_key=True, autoincrement=True)
+    original_message_id: Mapped[str] = mapped_column(ForeignKey('message.id'))
+    content: Mapped[str] = mapped_column()
+
+    def __init__(self, original_message_id: str, content: str, **kwargs):
+        super().__init__(original_message_id=original_message_id, content=content, **kwargs)

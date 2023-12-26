@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
 from ..interface import IDatabase
-from ._entities import Base, User, Message
+from ._entities import Base, User, Message, ProcessedMessage
 
 class Database(IDatabase):
 
@@ -13,26 +13,38 @@ class Database(IDatabase):
             create_database(db_url)
         Base.metadata.create_all(self.engine)
 
-    def addUser(self, user: User):
+    def addUsers(self, users: List[User]):
         with Session(self.engine, expire_on_commit=False) as session:
-            session.add(user)
+            session.bulk_save_objects(users)
             session.commit()
-        return user
 
-    def addMessage(self, to_user_id: str, message: Message):
+    def addMessage(self, message: Message, to_user_id: str | None):
         with Session(self.engine, expire_on_commit=False) as session:
-            # delete message if present, because sqlalchemy doesn't know how to replace a one-to-one child
             from_user = session.query(User).filter(User.id == message.from_user_id).one()
-            last_message = Message(
-                id=message.id,
-                content=message.content,
-                from_user_id=from_user.id,
-                to_user_id=to_user_id
-            )
             from_user.last_message_id = message.id
-            session.add(last_message)
+            if to_user_id is not None:
+                message.to_user_id = to_user_id
+            session.add(message)
             session.add(from_user)
             session.commit()
+
+    def markMessageSent(self, message: Message, to_user_id: str):
+        with Session(self.engine, expire_on_commit=False) as session:
+            from_user = session.query(User).filter(User.id == message.from_user_id).one()
+            message.to_user_id = to_user_id
+            from_user.last_message_id = message.id
+            session.add(message)
+            session.add(from_user)
+            session.commit()
+
+    def addProcessedMessage(self, message: ProcessedMessage):
+        with Session(self.engine, expire_on_commit=False) as session:
+            session.add(message)
+            session.commit()
+
+    def unsentMessagesFrom(self, user: User) -> List[Message]:
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all()
 
     # matches a user with another user
     def matchUsers(self, user1_id: str, user2_id: str):

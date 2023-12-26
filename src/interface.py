@@ -34,7 +34,7 @@ class ISocialPlatform(ABC):
 
 class IDatabase(ABC):
 
-    def addUser(self, user_id: str) -> User:
+    def addUsers(self, user_id: str):
         raise NotImplementedError()
 
     # replaces the old last_message with a new message
@@ -55,8 +55,5 @@ class IDatabase(ABC):
 
 class IPortal(ABC):
 
-    def initNewUser(self, user_id: str) -> User:
-        raise NotImplementedError()
-
-    def receiveMessageBatch(self, message: MessageBatch):
+    def runStep(self) -> User:
         raise NotImplementedError()

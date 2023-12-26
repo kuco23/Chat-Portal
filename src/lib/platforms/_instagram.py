@@ -59,9 +59,10 @@ class Instagram(ISocialPlatform):
             message_batch = MessageBatch(user_id, [])
             self.client.direct_send_seen(int(thread.id))
             for message in thread.messages:
-                if message.user_id != user_id or message.text is  None:
+                if message.user_id != user_id or message.text is None:
                     continue
-                message_batch.socialMessages.append(Message(message.id, user_id, message.text))
+                message = Message(message.id, user_id, message.text, message.timestamp.timestamp())
+                message_batch.socialMessages.append(message)
         return message_batches
 
     def getUser(self, user_id: str) -> User:
