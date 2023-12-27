@@ -1,71 +1,66 @@
 from typing import List
-from abc import ABC
-from dataclasses import dataclass
+from abc import ABC, abstractmethod
+from .lib._models import MessageBatch
 from .lib._entities import User, Message, ProcessedMessage
 
 
-@dataclass
-class MessageBatch:
-    from_user_id: str
-    socialMessages: List[Message]
-
-    def __iter__(self):
-        return iter(self.socialMessages)
-
-    def __getitem__(self, i):
-        return self.socialMessages.__getitem__(i)
-
-    def __len__(self):
-        return self.socialMessages.__len__()
-
 class ISocialPlatform(ABC):
 
-    def sendMessage(self, to_user_id: str, message: str) -> bool:
-        raise NotImplementedError()
+    @abstractmethod
+    def sendMessage(self, to_user_id: str, message: str) -> bool: pass
 
-    def getNewUsers(self) -> List[User]:
-        raise NotImplementedError()
+    @abstractmethod
+    def getNewMessages(self) -> List[MessageBatch]: pass
 
-    def getNewMessages(self) -> List[MessageBatch]:
-        raise NotImplementedError()
+    @abstractmethod
+    def getOldMessages(self) -> List[MessageBatch]: pass
 
-    def getUser(self, user_id: str) -> User:
-        raise NotImplementedError()
+    @abstractmethod
+    def getUser(self, user_id: str) -> User: pass
 
 class IDatabase(ABC):
 
-    def addUsers(self, users: List[User]):
-        raise NotImplementedError()
+    @abstractmethod
+    def addUsers(self, users: List[User]): pass
 
     # matches a user with another user
-    def matchUsers(self, user1_id: str, user2_id: str):
-        raise NotImplementedError()
+    @abstractmethod
+    def matchUsers(self, user1_id: str, user2_id: str): pass
 
     # fetches a user from the database
-    def findUser(self, user_id: str) -> User | None:
-        raise NotImplementedError()
+    @abstractmethod
+    def findUser(self, user_id: str) -> User | None: pass
 
     # fetches all users that are candidates for matching with the given user
-    def fetchMatchCandidates(self, user_id: str) -> List[User]:
-        raise NotImplementedError()
+    @abstractmethod
+    def fetchMatchCandidates(self, user_id: str) -> List[User]: pass
 
-    # replaces the old last_message with a new message
-    def addMessage(self, message: Message, to_user_id: str | None):
-        raise NotImplementedError()
+    # add a message to the database if it does not exist
+    @abstractmethod
+    def addMessageIfNotExists(self, message: Message, to_user_id: str | None): pass
 
     # marks message sent by setting the to_user_id
-    def markMessageSent(self, message: Message, to_user_id: str):
-        raise NotImplementedError()
+    @abstractmethod
+    def markMessageSent(self, message: Message, to_user_id: str): pass
 
     # returns all unsent messages from the given user
-    def unsentMessagesFrom(self, user: User) -> List[Message]:
-        raise NotImplementedError()
+    @abstractmethod
+    def unsentMessagesFrom(self, user: User) -> List[Message]: pass
 
     # adds a message processed by the given processor
-    def addProcessedMessage(self, message: ProcessedMessage):
-        raise NotImplementedError()
+    @abstractmethod
+    def addProcessedMessage(self, message: ProcessedMessage): pass
+
+    # fetches all users that have a match from the database
+    @abstractmethod
+    def fetchMatchedUsers(self) -> List[User]: pass
 
 class IPortal(ABC):
 
-    def runStep(self) -> User:
-        raise NotImplementedError()
+    # runs a step by using social platform's new users and messages
+    @abstractmethod
+    def runStep(self): pass
+
+    # jumpstarts the portal by using social platform's all users and messages
+    @abstractmethod
+    def jumpstart(self): pass

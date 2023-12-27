@@ -2,6 +2,7 @@ import os
 from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
+from sqlalchemy_utils import database_exists
 # from openai import OpenAI
 from src import Instagram, Database, Portal
 
@@ -21,10 +22,19 @@ INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
 if INSTAGRAM_USERNAME is None or INSTAGRAM_PASSWORD is None:
     raise Exception("Instagram username and password must be set in .env")
 
+# check if this is the first time script is being run
+FIRST_SCRIPT_RUN = not database_exists(DATABASE_URL)
+
 # define program components
 instagram = Instagram(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
 database = Database(DATABASE_URL)
 portal = Portal(database, instagram)
+
+# jumpstart if the script was never run before
+# this is to aid of broken database migrations
+if FIRST_SCRIPT_RUN:
+    portal.jumpstart()
+    sleep(MID_RUN_SLEEP)
 
 # run main loop
 while True:

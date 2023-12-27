@@ -1,4 +1,5 @@
-from ..interface import ISocialPlatform, MessageBatch
+from ..interface import ISocialPlatform
+from ..lib._models import MessageBatch
 from ..lib._entities import User, Message
 from ..lib import Portal, Database
 

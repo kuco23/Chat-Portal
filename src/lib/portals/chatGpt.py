@@ -1,7 +1,8 @@
 from typing import List
 from openai import OpenAI
-from ...interface import ISocialPlatform, IDatabase, MessageBatch
-from ...lib._entities import ProcessedMessage
+from ...interface import ISocialPlatform, IDatabase
+from .._models import MessageBatch
+from .._entities import ProcessedMessage
 from .._portal import Portal
 
 class GptPortal(Portal):
@@ -21,15 +22,12 @@ class GptPortal(Portal):
         self.openai_assistant_config = openai_assistant_config
         self.openai_model_name = openai_model_name
 
-    def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
-        return super()._processMessageBatch(messages, to_user_id)
-
-    def _getGptResponse(self, prompt) -> str | None:
+    def _getGptResponse(self, prompt_sys: str, prompt_usr: str) -> str | None:
         completion = self.openai_client.chat.completions.create(
             model=self.openai_model_name,
             messages=[
-                { "role": "system", "content": self.openai_assistant_config },
-                { "role": "user", "content": prompt }
+                { "role": "system", "content": prompt_sys },
+                { "role": "user", "content": prompt_usr }
             ]
         )
         return completion.choices[0].message.content

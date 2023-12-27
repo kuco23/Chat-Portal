@@ -39,7 +39,7 @@ class Message(Base):
 
 class ProcessedMessage(Base):
     __tablename__ = "processed_message"
-    id: Mapped[str] = mapped_column(primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     original_message_id: Mapped[str] = mapped_column(ForeignKey('message.id'))
     content: Mapped[str] = mapped_column()
 

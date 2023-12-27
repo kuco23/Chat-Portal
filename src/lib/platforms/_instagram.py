@@ -1,6 +1,8 @@
 from typing import List
 from instagrapi import Client
-from ...interface import ISocialPlatform, User, Message, MessageBatch
+from instagrapi.types import DirectThread
+from ...interface import ISocialPlatform, User, Message
+from .._models import MessageBatch
 
 
 THREAD_FETCH_LIMIT = 40
@@ -14,7 +16,6 @@ class Instagram(ISocialPlatform):
         self.client = Client()
         self.client.login(username, password)
         self.user_id = self.client.user_id_from_username(username)
-        # self.client.direct_messages(to_user_id, message)
 
     def sendMessage(self, to_user_id: str, message: str) -> bool:
         self.client.direct_threads()
@@ -23,48 +24,49 @@ class Instagram(ISocialPlatform):
             self.client.direct_send_seen(int(msg.thread_id))
         return True # fix to return whether message was successfully sent
 
-    def getNewUsers(self) -> List[User]:
-        '''
-            get new users from new pending messages
-            and approve their message requests, so
-            they can be seen in the direct_threads
-        '''
-        users: List[User] = []
-        threads = self.client.direct_pending_inbox()
-        for thread in threads:
-            if thread.id is not None:
-                self.client.direct_pending_approve(int(thread.id))
-            user_id = thread.messages[0].user_id
-            if user_id is not None:
-                user_info = thread.users[0]
-                users.append(User(user_id, username=user_info.username, full_name=user_info.full_name))
-        return users
-
     def getNewMessages(self) -> List[MessageBatch]:
-        '''
-            get new messages from all threads and mark them as seen
-            Return: dictionary of thread_id -> list of messages,
-            where messages should be sorted by timestamp
-        '''
-        message_batches: List[MessageBatch] = []
-        threads = self.client.direct_threads(
-            THREAD_FETCH_LIMIT,
-            selected_filter="unread",
-            thread_message_limit=THREAD_MSG_LIMIT
-        )
-        for thread in threads:
-            user_id = thread.messages[0].user_id
-            if user_id is None or thread.id is None:
-                continue
-            message_batch = MessageBatch(user_id, [])
-            self.client.direct_send_seen(int(thread.id))
-            for message in thread.messages:
-                if message.user_id != user_id or message.text is None:
-                    continue
-                message = Message(message.id, user_id, message.text, message.timestamp.timestamp())
-                message_batch.socialMessages.append(message)
-        return message_batches
+        new_approved = self._getApprovedMessages(False)
+        new_pending = self._getPendingMessages()
+        return new_approved + new_pending
+
+    def getOldMessages(self) -> List[MessageBatch]:
+        return self._getApprovedMessages(True)
 
     def getUser(self, user_id: str) -> User:
         user_info = self.client.user_info(user_id)
         return User(user_id, username=user_info.username, full_name=user_info.full_name)
+
+    def _getApprovedMessages(self, old: bool) -> List[MessageBatch]:
+        batches: List[MessageBatch] = []
+        threads = self.client.direct_threads(THREAD_FETCH_LIMIT, "" if old else "unread", "", THREAD_MSG_LIMIT)
+        for thread in threads:
+            batch = self._threadToMessageBatch(thread)
+            if batch is not None: batches.append(batch)
+            self.client.direct_send_seen(int(thread.id))
+        return batches
+
+    def _getPendingMessages(self) -> List[MessageBatch]:
+        batches: List[MessageBatch] = []
+        threads = self.client.direct_pending_inbox()
+        for thread in threads:
+            if thread.id is None: continue
+            batch = self._threadToMessageBatch(thread)
+            if batch is not None: batches.append(batch)
+            self.client.direct_pending_approve(int(thread.id))
+        return batches
+
+    def _threadToMessageBatch(self, thread: DirectThread) -> MessageBatch | None:
+        user_id: str | None = None
+        messages: List[Message] = []
+        for message in thread.messages:
+            if message.user_id == self.user_id or message.user_id is None or message.text is None: continue
+            messages.append(Message(message.id, message.user_id, message.text, message.timestamp.timestamp()))
+            if user_id is None: user_id = message.user_id
+        if user_id is None: return None
+        # user_info does not have an id for some reason, so we gotta get hacky
+        # ideally we should check whether thread.users[0].username exists
+        # if it does, we should check it matches self.user_id,
+        # else we should fetch the user's info with self.getUser(user_id)
+        user_info = thread.users[0]
+        user = User(user_id, username=user_info.username, full_name=user_info.full_name)
+        return MessageBatch(user, messages)

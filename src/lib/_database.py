@@ -19,8 +19,10 @@ class Database(IDatabase):
             session.bulk_save_objects(users)
             session.commit()
 
-    def addMessage(self, message: Message, to_user_id: str | None):
+    def addMessageIfNotExists(self, message: Message, to_user_id: str | None):
         with Session(self.engine, expire_on_commit=False) as session:
+            if session.query(Message).filter(Message.id == message.id).one_or_none() is not None:
+                return
             from_user = session.query(User).filter(User.id == message.from_user_id).one()
             from_user.last_message_id = message.id
             if to_user_id is not None:
@@ -45,7 +47,10 @@ class Database(IDatabase):
 
     def unsentMessagesFrom(self, user: User) -> List[Message]:
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all()
+            return sorted(
+                session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all(),
+                key=lambda message: message.timestamp
+            )
 
     # matches a user with another user
     def matchUsers(self, user1_id: str, user2_id: str):
@@ -58,10 +63,13 @@ class Database(IDatabase):
             session.add(user2)
             session.commit()
 
-    # fetches a user from the database
     def findUser(self, user_id: str) -> User | None:
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(User).filter(User.id == user_id).one_or_none()
+
+    def fetchMatchedUsers(self) -> List[User]:
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(User).filter(User.match_id.is_not(None)).all()
 
     # fetches all users that are candidates for matching with the given user
     def fetchMatchCandidates(self, user_id: str) -> List[User]:
