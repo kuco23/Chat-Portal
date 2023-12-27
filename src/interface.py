@@ -1,7 +1,7 @@
 from typing import List
 from abc import ABC
 from dataclasses import dataclass
-from .lib._entities import User, Message
+from .lib._entities import User, Message, ProcessedMessage
 
 
 @dataclass
@@ -34,11 +34,7 @@ class ISocialPlatform(ABC):
 
 class IDatabase(ABC):
 
-    def addUsers(self, user_id: str):
-        raise NotImplementedError()
-
-    # replaces the old last_message with a new message
-    def addMessage(self, to_user_id: str, message: Message):
+    def addUsers(self, users: List[User]):
         raise NotImplementedError()
 
     # matches a user with another user
@@ -51,6 +47,22 @@ class IDatabase(ABC):
 
     # fetches all users that are candidates for matching with the given user
     def fetchMatchCandidates(self, user_id: str) -> List[User]:
+        raise NotImplementedError()
+
+    # replaces the old last_message with a new message
+    def addMessage(self, message: Message, to_user_id: str | None):
+        raise NotImplementedError()
+
+    # marks message sent by setting the to_user_id
+    def markMessageSent(self, message: Message, to_user_id: str):
+        raise NotImplementedError()
+
+    # returns all unsent messages from the given user
+    def unsentMessagesFrom(self, user: User) -> List[Message]:
+        raise NotImplementedError()
+
+    # adds a message processed by the given processor
+    def addProcessedMessage(self, message: ProcessedMessage):
         raise NotImplementedError()
 
 class IPortal(ABC):

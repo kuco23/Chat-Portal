@@ -4,3 +4,4 @@ __pycache__/
 *.db
 
 instagram_test.py
+gpt_test.py

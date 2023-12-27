@@ -1,11 +1,12 @@
 from typing import List
-from sqlalchemy import create_engine
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
 from ..interface import IDatabase
 from ._entities import Base, User, Message, ProcessedMessage
 
 class Database(IDatabase):
+    engine: Engine
 
     def __init__(self, db_url):
         self.engine = create_engine(db_url, echo=False)

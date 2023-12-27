@@ -1,6 +1,8 @@
-import time, os
+import os
+from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
+# from openai import OpenAI
 from src import Instagram, Database, Portal
 
 # take program config from config.cfg
@@ -27,4 +29,4 @@ portal = Portal(database, instagram)
 # run main loop
 while True:
     portal.runStep()
-    time.sleep(MID_RUN_SLEEP)
+    sleep(MID_RUN_SLEEP)

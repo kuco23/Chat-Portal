@@ -1,13 +1,15 @@
 from typing import List
-from ..interface import IPortal, ISocialPlatform, MessageBatch
+from time import sleep
+from ..interface import IPortal, ISocialPlatform, IDatabase, MessageBatch
 from ._entities import User, ProcessedMessage
-from ._database import Database
 
 
 class Portal(IPortal):
+    database: IDatabase
+    social_platform: ISocialPlatform
 
     def __init__(self,
-        database: Database,
+        database: IDatabase,
         social_platform: ISocialPlatform
     ):
         self.database = database
@@ -48,6 +50,7 @@ class Portal(IPortal):
         processed_messages = self._processMessageBatch(MessageBatch(user.id, unsent_messages), user.match_id)
         assert len(processed_messages) == len(unsent_messages), "each message should be processed into exactly one other message"
         for original_message, processed_message in zip(unsent_messages, processed_messages):
+            sleep(self._waitToType(processed_message.content))
             self.social_platform.sendMessage(user.match_id, processed_message.content)
             self.database.markMessageSent(original_message, user.match_id)
             self.database.addProcessedMessage(processed_message)
@@ -77,3 +80,7 @@ class Portal(IPortal):
     @staticmethod
     def _scoreOkToMatch(score) -> bool:
         return score > 50
+
+    @staticmethod
+    def _waitToType(word: str) -> int:
+        return int(len(word) * 0.5)
