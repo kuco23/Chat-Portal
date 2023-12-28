@@ -10,7 +10,8 @@ class GptPortal(Portal):
     openai_assistant_config: str
     openai_model_name: str
 
-    def __init__(self,
+    def __init__(
+        self: "GptPortal",
         database: IDatabase,
         social_platform: ISocialPlatform,
         openai_client: OpenAI,

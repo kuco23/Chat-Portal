@@ -17,7 +17,6 @@ class User(Base):
     full_name: Mapped[str] = mapped_column(nullable=True) # not obtainable with instagrapi
     gender: Mapped[bool] = mapped_column(nullable=True)
     match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
-    last_message_id: Mapped[str] = mapped_column(ForeignKey('message.id'), nullable=True)
     # relationships
     match: Mapped["User"] = relationship("User", remote_side=[id], uselist=False)
 

@@ -10,7 +10,8 @@ class Portal(IPortal):
     database: IDatabase
     social_platform: ISocialPlatform
 
-    def __init__(self,
+    def __init__(
+        self: "Portal",
         database: IDatabase,
         social_platform: ISocialPlatform
     ):
@@ -53,7 +54,7 @@ class Portal(IPortal):
             self.database.addMessageIfNotExists(message, None)
         # try to match the user with another
         if user.match_id is None:
-            match = self._tryFindUserMatch(user, messages)
+            match = self._bestMatchOf(user)
             if match is not None:
                 self.database.matchUsers(user.id, match.id)
                 user.match_id = match.id
@@ -72,10 +73,6 @@ class Portal(IPortal):
         logger.info(f"Portal: forward messages from user {user.id} to match {user.match_id}")
         self._processAndForwardMessagesFrom(user)
 
-    def _processUnsentMessages(self):
-        for user in self.database.fetchMatchedUsers():
-            self._processAndForwardMessagesFrom(user)
-
     def _processAndForwardMessagesFrom(self, user: User):
         if user.match_id is None: return
         unsent_messages = self.database.unsentMessagesFrom(user)
@@ -91,16 +88,18 @@ class Portal(IPortal):
             self.database.addProcessedMessage(processed_message)
             logger.info(f"Portal: processed message {processed_message.id} sent to user {user.match_id}")
 
-    def _tryFindUserMatch(self, user: User, initial_message_batch: MessageBatch) -> User | None:
-        best_match = None
-        best_score = -1
+    def _processUnsentMessages(self):
+        for user in self.database.fetchMatchedUsers():
+            self._processAndForwardMessagesFrom(user)
+
+    ############################## Methods to override ##############################
+
+    # tries to find a match for the given user
+    # it should fetch the messages of user and each match candidate from the database
+    # and find the most conversation-compatible ones using some algorithm (e.g. AI)
+    def _bestMatchOf(self, user: User) -> User | None:
         for test_user in self.database.fetchMatchCandidates(user.id):
-            score = self._scoreUserPair(user, test_user, initial_message_batch)
-            if score > best_score:
-                best_score = score
-                best_match = test_user
-        if self._scoreOkToMatch(best_score):
-            return best_match
+            return test_user
 
     # processes the message sent to this.user before being forwarded to the sender's match
     # this is necessary, e.g. when this.user is a woman but sender and the match are men
@@ -108,14 +107,6 @@ class Portal(IPortal):
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
     def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
         return [ProcessedMessage(msg.id, msg.content) for msg in messages]
-
-    def _scoreUserPair(self, user1: User, user2: User, user1_message_batch: str | MessageBatch) -> int:
-        return 100
-
-    # min score for two users to be considered a match
-    @staticmethod
-    def _scoreOkToMatch(score) -> bool:
-        return score > 50
 
     @staticmethod
     def _waitToType(word: str) -> int:

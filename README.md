@@ -12,7 +12,7 @@ All the interfaces start with the capital `I` and are defined in the `src/interf
 - The `IDatabase` interface is implemented by the `Database` class, which is a wrapper around an `SqlAlchemy` orm.
 - The `ISocialPlatform` interface is implemented by the `Instagram` class, which is a wrapper around the [instagrapi](https://github.com/subzeroid/instagrapi) library. You can implement more social media platforms inside the `src/lib/platforms/` folder.
 
-To implement a message processor and a user matcher, you have to subclass the `Portal` class and implement the `_processMessageBatch`, `_scoreUserPair`, and `_scoreOkToMatch` methods. The current implementation inside `src/lib/portals/chatGpt.py` connects to ChatGPT and asks it to process messages and score user pair compatibility.
+To implement a message processor and a user matcher, you have to subclass the `Portal` class and implement the `_processMessageBatch`, `_bestMatchOf` methods. The current implementation inside `src/lib/portals/chatGpt.py` connects to ChatGPT and asks it to process messages and score user pair compatibility.
 
 ## Setup
 

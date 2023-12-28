@@ -23,21 +23,15 @@ class Database(IDatabase):
         with Session(self.engine, expire_on_commit=False) as session:
             if session.query(Message).filter(Message.id == message.id).one_or_none() is not None:
                 return
-            from_user = session.query(User).filter(User.id == message.from_user_id).one()
-            from_user.last_message_id = message.id
             if to_user_id is not None:
                 message.to_user_id = to_user_id
             session.add(message)
-            session.add(from_user)
             session.commit()
 
     def markMessageSent(self, message: Message, to_user_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
-            from_user = session.query(User).filter(User.id == message.from_user_id).one()
             message.to_user_id = to_user_id
-            from_user.last_message_id = message.id
             session.add(message)
-            session.add(from_user)
             session.commit()
 
     def addProcessedMessage(self, message: ProcessedMessage):
