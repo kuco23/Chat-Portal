@@ -1,1 +1,1 @@
-from .lib import Portal, Database, Instagram
+from .lib import Portal, Database, Instagram, GptPortal

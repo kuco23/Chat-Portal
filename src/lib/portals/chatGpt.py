@@ -20,7 +20,6 @@ Any output that does not follow that format will be rejected.
 
 class GptPortal(Portal):
     openai_client: OpenAI
-    openai_assistant_config: str
     openai_model_name: str
 
     def __init__(
@@ -28,12 +27,10 @@ class GptPortal(Portal):
         database: IDatabase,
         social_platform: ISocialPlatform,
         openai_client: OpenAI,
-        openai_assistant_config: str,
         openai_model_name: str
     ):
         super().__init__(database, social_platform)
         self.openai_client = openai_client
-        self.openai_assistant_config = openai_assistant_config
         self.openai_model_name = openai_model_name
 
     def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage] | None:

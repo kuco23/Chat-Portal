@@ -3,8 +3,8 @@ from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
 from sqlalchemy_utils import database_exists
-# from openai import OpenAI
-from src import Instagram, Database, Portal
+from openai import OpenAI
+from src import Database, Instagram, GptPortal
 
 # take program config from config.cfg
 # and environment variables from .env
@@ -14,6 +14,7 @@ load_dotenv()
 
 # read config
 DATABASE_URL = config["DATABASE"]["URL"]
+OPENAI_MODEL = config["OPENAI"]["MODEL"]
 MID_RUN_SLEEP = int(config["PROGRAM"]["MID_RUN_SLEEP_SECONDS"])
 
 # read environment variables
@@ -26,17 +27,20 @@ if INSTAGRAM_USERNAME is None or INSTAGRAM_PASSWORD is None:
 FIRST_SCRIPT_RUN = not database_exists(DATABASE_URL)
 
 # define program components
-instagram = Instagram(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
 database = Database(DATABASE_URL)
-portal = Portal(database, instagram)
+instagram = Instagram(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
+openai = OpenAI()
+portal = GptPortal(database, instagram, openai, OPENAI_MODEL)
 
 # jumpstart if the script was never run before
 # this is to aid of broken database migrations
 if FIRST_SCRIPT_RUN:
+    print("First script run detected, jumpstarting...")
     portal.jumpstart()
     sleep(MID_RUN_SLEEP)
 
 # run main loop
+print("Running main loop...")
 while True:
     portal.runStep()
     sleep(MID_RUN_SLEEP)
