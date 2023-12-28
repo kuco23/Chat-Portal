@@ -1,5 +1,4 @@
 from typing import List
-from time import sleep
 from ..interface import IPortal, ISocialPlatform, IDatabase
 from ._models import MessageBatch
 from ._entities import User, ProcessedMessage
@@ -20,24 +19,24 @@ class Portal(IPortal):
 
     def runStep(self):
         self._processUnsentMessages()
-        self._handleMessageBatches(False)
+        batches = self.social_platform.getNewMessages()
+        self._handleMessageBatches(batches)
 
     def jumpstart(self):
-        self._handleMessageBatches(True)
+        batches = self.social_platform.getOldMessages()
+        self._handleMessageBatches(batches)
 
-    def _handleMessageBatches(self, old: bool):
-        batches = self.social_platform.getOldMessages() if old \
-            else self.social_platform.getNewMessages()
-        logger.info(f"Portal: received {len(batches)} {'old' if old else 'new'} message batches")
+    def _handleMessageBatches(self, batches: List[MessageBatch]):
+        logger.info(f"Portal: received {len(batches)} message batches to handle")
         for batch in batches:
-            logger.info(f"Portal: processing message batch from user {batch.from_user_id}")
+            logger.info(f"Portal: handling {len(batch)} length message batch from user {batch.from_user_id}")
             self._receiveMessageBatch(batch)
-            logger.info(f"Portal: processed message batch from user {batch.from_user_id}")
+            logger.info(f"Portal: handled message batch from user {batch.from_user_id}")
 
     def _receiveMessageBatch(self, messages: MessageBatch) -> User | None:
         if len(messages) == 0: return
         user = self.database.findUser(messages.from_user_id)
-        # if user is not in the database, then add it
+        # if user is not in the database, then add them
         if user is None:
             if type(messages.from_user) is str:
                 # if only id is present, then fetch the user from the social platform
@@ -50,8 +49,13 @@ class Portal(IPortal):
             logger.info(f"Portal: initialized new user {user.id} as a message batch sender")
         # store messages to the database (they need to be available before match finding)
         # note that the message should not be stored if it is already in the database
-        for message in messages:
-            self.database.addMessageIfNotExists(message, None)
+        for message in sorted(messages, key=lambda msg: -msg.timestamp):
+            not_exists = self.database.addMessageIfNotExists(message, None)
+            # if those messages reach an old message already in the database,
+            # then stop adding them to prevent adding messages before those in the database
+            # if code is interrupt here some messages will be ignored, because database will
+            # have a hole in the messages timeline
+            if not not_exists: break
         # try to match the user with another
         if user.match_id is None:
             match = self._bestMatchOf(user)
@@ -63,7 +67,7 @@ class Portal(IPortal):
                 # if match's messages were processed before this user was available
                 # (or matching was not symmetric) then force-forward match's messages
                 # note that messages will not be double-sent because sending them
-                # is logged in the database
+                # is logged in the database - todo: think of a solution
                 logger.info(f"Portal: forward messages from match {match.id} to user {match.id}")
                 self._processAndForwardMessagesFrom(match)
             else: # no match possible => end here
@@ -77,12 +81,11 @@ class Portal(IPortal):
         if user.match_id is None: return
         unsent_messages = self.database.unsentMessagesFrom(user)
         if len(unsent_messages) == 0: return
-        logger.info(f"Portal: processing messages to be sent from user {user.id} to user {user.match_id}")
+        logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {user.match_id}")
         processed_messages = self._processMessageBatch(MessageBatch(user.id, unsent_messages), user.match_id)
         if len(processed_messages) != len(unsent_messages):
             return logger.error(f"Portal: processed messages length does not match the unprocessed ones")
         for original_message, processed_message in zip(unsent_messages, processed_messages):
-            sleep(self._waitToType(processed_message.content))
             self.social_platform.sendMessage(user.match_id, processed_message.content)
             self.database.markMessageSent(original_message, user.match_id)
             self.database.addProcessedMessage(processed_message)
@@ -107,7 +110,3 @@ class Portal(IPortal):
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
     def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
         return [ProcessedMessage(message.id, message.content) for message in batch]
-
-    @staticmethod
-    def _waitToType(word: str) -> int:
-        return len(word) // 3

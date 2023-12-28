@@ -1,0 +1,18 @@
+[Unit]
+Description = Chat Portal Bot
+After = network-online.target
+Wants = network-online.target
+
+[Service]
+Type = exec
+ExecStart = /path/to/repo/.venv/bin/python /path/to/repo/run.py
+WorkingDirectory = /path/to/repo
+Restart = always
+RestartSec = 10
+StandardOutput = journal
+StandardError = journal
+SyslogIdentifier = chat-portal-bot
+Environment = LANG=C.UTF-8 SHELL=/bin/bash
+
+[Install]
+WantedBy = multi-user.target

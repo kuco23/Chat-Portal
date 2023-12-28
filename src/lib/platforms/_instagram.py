@@ -1,11 +1,12 @@
 from typing import List
+from time import sleep
 from instagrapi import Client
 from instagrapi.types import DirectThread
 from ...interface import ISocialPlatform, User, Message
 from .._models import MessageBatch
 
 
-THREAD_FETCH_LIMIT = 40
+THREAD_FETCH_LIMIT = 20
 THREAD_MSG_LIMIT = 20
 
 class Instagram(ISocialPlatform):
@@ -19,6 +20,7 @@ class Instagram(ISocialPlatform):
 
     def sendMessage(self, to_user_id: str, message: str) -> bool:
         self.client.direct_threads()
+        sleep(Instagram._secondsToWaitForTypingText(message))
         msg = self.client.direct_send(message, [int(to_user_id)])
         if msg.thread_id is not None:
             self.client.direct_send_seen(int(msg.thread_id))
@@ -40,7 +42,7 @@ class Instagram(ISocialPlatform):
         batches: List[MessageBatch] = []
         threads = self.client.direct_threads(THREAD_FETCH_LIMIT, "" if old else "unread", "", THREAD_MSG_LIMIT)
         for thread in threads:
-            batch = self._threadToMessageBatch(thread)
+            batch = self._threadToMessageBatch(thread, old)
             if batch is not None: batches.append(batch)
             self.client.direct_send_seen(int(thread.id))
         return batches
@@ -50,16 +52,20 @@ class Instagram(ISocialPlatform):
         threads = self.client.direct_pending_inbox()
         for thread in threads:
             if thread.id is None: continue
-            batch = self._threadToMessageBatch(thread)
+            batch = self._threadToMessageBatch(thread, True)
             if batch is not None: batches.append(batch)
             self.client.direct_pending_approve(int(thread.id))
         return batches
 
-    def _threadToMessageBatch(self, thread: DirectThread) -> MessageBatch | None:
+    # if unanwered then return only messages that were sent without our user replying
+    def _threadToMessageBatch(self, thread: DirectThread, unanswered: bool) -> MessageBatch | None:
         user_id: str | None = None
         messages: List[Message] = []
         for message in thread.messages:
-            if message.user_id == self.user_id or message.user_id is None or message.text is None: continue
+            if message.user_id is None or message.text is None: continue
+            if message.user_id == self.user_id:
+                if unanswered: break
+                else: continue
             messages.append(Message(message.id, message.user_id, message.text, message.timestamp.timestamp()))
             if user_id is None: user_id = message.user_id
         if user_id is None: return None
@@ -70,3 +76,7 @@ class Instagram(ISocialPlatform):
         user_info = thread.users[0]
         user = User(user_id, username=user_info.username, full_name=user_info.full_name)
         return MessageBatch(user, messages)
+
+    @staticmethod
+    def _secondsToWaitForTypingText(text: str) -> int:
+        return len(text) // 3

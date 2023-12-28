@@ -15,6 +15,7 @@ class ISocialPlatform(ABC):
     @abstractmethod
     def getOldMessages(self) -> List[MessageBatch]: pass
 
+    # gets user with full info (like username, full_name, gender)
     @abstractmethod
     def getUser(self, user_id: str) -> User: pass
 
@@ -35,9 +36,10 @@ class IDatabase(ABC):
     @abstractmethod
     def fetchMatchCandidates(self, user_id: str) -> List[User]: pass
 
-    # add a message to the database if it does not exist
+    # add a message to the database if it does not exist.
+    # If the message already exists, then return False.
     @abstractmethod
-    def addMessageIfNotExists(self, message: Message, to_user_id: str | None): pass
+    def addMessageIfNotExists(self, message: Message, to_user_id: str | None) -> bool: pass
 
     # marks message sent by setting the to_user_id
     @abstractmethod

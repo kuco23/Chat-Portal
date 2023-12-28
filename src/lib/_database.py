@@ -19,14 +19,15 @@ class Database(IDatabase):
             session.bulk_save_objects(users)
             session.commit()
 
-    def addMessageIfNotExists(self, message: Message, to_user_id: str | None):
+    def addMessageIfNotExists(self, message: Message, to_user_id: str | None) -> bool:
         with Session(self.engine, expire_on_commit=False) as session:
             if session.query(Message).filter(Message.id == message.id).one_or_none() is not None:
-                return
+                return False
             if to_user_id is not None:
                 message.to_user_id = to_user_id
             session.add(message)
             session.commit()
+        return True
 
     def markMessageSent(self, message: Message, to_user_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
