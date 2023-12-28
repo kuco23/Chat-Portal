@@ -5,16 +5,16 @@ from ._entities import User, Message
 @dataclass
 class MessageBatch:
     from_user: str | User
-    socialMessages: List[Message]
+    messages: List[Message]
 
     def __iter__(self):
-        return iter(self.socialMessages)
+        return iter(self.messages)
 
     def __getitem__(self, i):
-        return self.socialMessages.__getitem__(i)
+        return self.messages.__getitem__(i)
 
     def __len__(self):
-        return self.socialMessages.__len__()
+        return self.messages.__len__()
 
     @property
     def from_user_id(self) -> str:

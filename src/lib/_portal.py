@@ -105,8 +105,8 @@ class Portal(IPortal):
     # this is necessary, e.g. when this.user is a woman but sender and the match are men
     # e.g. the message is "how does a girl like you find herself on this app?"
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
-    def _processMessageBatch(self, messages: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
-        return [ProcessedMessage(msg.id, msg.content) for msg in messages]
+    def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
+        return [ProcessedMessage(message.id, message.content) for message in batch]
 
     @staticmethod
     def _waitToType(word: str) -> int:
