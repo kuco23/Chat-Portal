@@ -1,4 +1,4 @@
-# Run agent as a systemd service
+# Run chat portal as a systemd service
 
 To set up the `chat-portal-bot` service, follow these steps:
 
