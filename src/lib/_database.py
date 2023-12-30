@@ -3,6 +3,7 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
 from ..interface import IDatabase
+from ._models import MessageBatch
 from ._entities import Base, User, Message, ProcessedMessage
 
 class Database(IDatabase):
@@ -19,15 +20,10 @@ class Database(IDatabase):
             session.bulk_save_objects(users)
             session.commit()
 
-    def addMessageIfNotExists(self, message: Message, to_user_id: str | None) -> bool:
+    def addMessages(self, message: List[Message]):
         with Session(self.engine, expire_on_commit=False) as session:
-            if session.query(Message).filter(Message.id == message.id).one_or_none() is not None:
-                return False
-            if to_user_id is not None:
-                message.to_user_id = to_user_id
-            session.add(message)
+            session.bulk_save_objects(message)
             session.commit()
-        return True
 
     def markMessageSent(self, message: Message, to_user_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
@@ -58,9 +54,13 @@ class Database(IDatabase):
             session.add(user2)
             session.commit()
 
-    def findUser(self, user_id: str) -> User | None:
+    def fetchUser(self, user_id: str) -> User | None:
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(User).filter(User.id == user_id).one_or_none()
+
+    def fetchMessage(self, message_id: str) -> Message | None:
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(Message).filter(Message.id == message_id).one_or_none()
 
     def fetchMatchedUsers(self) -> List[User]:
         with Session(self.engine, expire_on_commit=False) as session:

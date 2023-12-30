@@ -29,7 +29,7 @@ FIRST_SCRIPT_RUN = not database_exists(DATABASE_URL)
 # define program components
 database = Database(DATABASE_URL)
 instagram = Instagram(INSTAGRAM_USERNAME, INSTAGRAM_PASSWORD)
-openai = OpenAI()
+openai = OpenAI() # takes OPENAI_API_KEY from os.environ
 portal = GptPortal(database, instagram, openai, OPENAI_MODEL)
 
 # jumpstart if the script was never run before

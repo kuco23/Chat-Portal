@@ -16,25 +16,25 @@ portal = Portal(database, platform)
 
 user1 = User("user1")
 portal.initNewUsers(user1)
-user = database.findUser("user1")
+user = database.fetchUser("user1")
 assert user is not None
 assert user.match_id is None
 
 user2 = User("user2")
 portal.initNewUsers(user2)
 portal.receiveMessageBatch(MessageBatch("user1", [Message("1", "user1", "hello")]))
-user = database.findUser(user1.id)
+user = database.fetchUser(user1.id)
 assert user is not None
 assert user.match_id == "user2"
 assert user.last_message_id == "1"
-user = database.findUser(user2.id)
+user = database.fetchUser(user2.id)
 assert user is not None
 assert user.match_id == "user1"
 assert user.last_message_id is None
 
 user3 = User("user3")
 portal.initNewUsers(user3)
-user = database.findUser(user3.id)
+user = database.fetchUser(user3.id)
 assert user is not None
 assert user.match_id is None
 

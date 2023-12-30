@@ -34,8 +34,8 @@ class GptPortal(Portal):
         self.openai_model_name = openai_model_name
 
     def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage] | None:
-        from_user = self.database.findUser(batch.from_user_id)
-        to_user = self.database.findUser(to_user_id)
+        from_user = self.database.fetchUser(batch.from_user_id)
+        to_user = self.database.fetchUser(to_user_id)
         if from_user is None:
             return logger.error(f"GptPortal: could not find user {batch.from_user_id}")
         if to_user is None:

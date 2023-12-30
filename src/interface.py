@@ -24,22 +24,27 @@ class IDatabase(ABC):
     @abstractmethod
     def addUsers(self, users: List[User]): pass
 
-    # matches a user with another user
     @abstractmethod
-    def matchUsers(self, user1_id: str, user2_id: str): pass
+    def addMessages(self, messages: List[Message]): pass
 
     # fetches a user from the database
     @abstractmethod
-    def findUser(self, user_id: str) -> User | None: pass
+    def fetchUser(self, user_id: str) -> User | None: pass
+
+    @abstractmethod
+    def fetchMessage(self, message_id: str) -> Message | None: pass
+
+    # matches a user with another user
+    @abstractmethod
+    def matchUsers(self, user1_id: str, user2_id: str): pass
 
     # fetches all users that are candidates for matching with the given user
     @abstractmethod
     def fetchMatchCandidates(self, user_id: str) -> List[User]: pass
 
-    # add a message to the database if it does not exist.
-    # If the message already exists, then return False.
+    # fetches all users that have a match from the database
     @abstractmethod
-    def addMessageIfNotExists(self, message: Message, to_user_id: str | None) -> bool: pass
+    def fetchMatchedUsers(self) -> List[User]: pass
 
     # marks message sent by setting the to_user_id
     @abstractmethod
@@ -52,10 +57,6 @@ class IDatabase(ABC):
     # adds a message processed by the given processor
     @abstractmethod
     def addProcessedMessage(self, message: ProcessedMessage): pass
-
-    # fetches all users that have a match from the database
-    @abstractmethod
-    def fetchMatchedUsers(self) -> List[User]: pass
 
 class IPortal(ABC):
 

@@ -18,9 +18,12 @@ class Portal(IPortal):
         self.social_platform = social_platform
 
     def runStep(self):
-        self._processUnsentMessages()
-        batches = self.social_platform.getNewMessages()
-        self._handleMessageBatches(batches)
+        try:
+            self._processUnsentMessages()
+            batches = self.social_platform.getNewMessages()
+            self._handleMessageBatches(batches)
+        except Exception as e:
+            logger.exception(f"Portal: exception occurred while running step: {e}")
 
     def jumpstart(self):
         batches = self.social_platform.getOldMessages()
@@ -35,7 +38,7 @@ class Portal(IPortal):
 
     def _receiveMessageBatch(self, messages: MessageBatch) -> User | None:
         if len(messages) == 0: return
-        user = self.database.findUser(messages.from_user_id)
+        user = self.database.fetchUser(messages.from_user_id)
         # if user is not in the database, then add them
         if user is None:
             if type(messages.from_user) is str:
@@ -48,14 +51,14 @@ class Portal(IPortal):
             self.database.addUsers([user])
             logger.info(f"Portal: initialized new user {user.id} as a message batch sender")
         # store messages to the database (they need to be available before match finding)
-        # note that the message should not be stored if it is already in the database
-        for message in sorted(messages, key=lambda msg: -msg.timestamp):
-            not_exists = self.database.addMessageIfNotExists(message, None)
-            # if those messages reach an old message already in the database,
-            # then stop adding them to prevent adding messages before those in the database
-            # if code is interrupt here some messages will be ignored, because database will
-            # have a hole in the messages timeline
-            if not not_exists: break
+        # note that messages sent before the latest message that is stored in the database
+        # will not be stored (to not to process messages before database genesis)
+        i: int = 0
+        message_queue = sorted(messages, key=lambda msg: -msg.timestamp)
+        for i, message in enumerate(message_queue):
+            message_exists = self.database.fetchMessage(message.id) is not None
+            if message_exists: break
+        self.database.addMessages(message_queue[i:])
         # try to match the user with another
         if user.match_id is None:
             match = self._bestMatchOf(user)
