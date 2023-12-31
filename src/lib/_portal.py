@@ -30,7 +30,6 @@ class Portal(IPortal):
         self._handleMessageBatches(batches)
 
     def _handleMessageBatches(self, batches: List[MessageBatch]):
-        logger.info(f"Portal: received {len(batches)} message batches to handle")
         for batch in batches:
             logger.info(f"Portal: handling {len(batch)} length message batch from user {batch.from_user_id}")
             self._receiveMessageBatch(batch)
