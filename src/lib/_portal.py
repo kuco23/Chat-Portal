@@ -58,7 +58,7 @@ class Portal(IPortal):
         for i, message in enumerate(message_queue):
             message_exists = self.database.fetchMessage(message.id) is not None
             if message_exists: break
-        self.database.addMessages(message_queue[i:])
+        self.database.addMessages(message_queue[:i])
         # try to match the user with another
         if user.match_id is None:
             match = self._bestMatchOf(user)

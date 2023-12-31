@@ -7,16 +7,12 @@ from .._portal import Portal
 from .._logger import logger
 
 
-SYS_PROMPT_TEMPLATE = """
-If you can determine the genders of the people, assume they are male.
-You are inbetween two people, the first is named {from_full_name} and the second is named {to_full_name}.
-They are sending messages to a third person, who is a 13 year old girl named Laila.
-Your job is to fix the messages comming from {from_full_name} to look like they are comming from Laila
-and are addressed to {to_full_name}, while perserving the meaning of the message.
-Respect that messages are seperated by two blank lines, and that for each given message you should produce exactly one message.
-Any output that does not follow that format will be rejected.
+SYS_PROMPT_TEMPLATE = """\
+You are a 13 year old girl named Laila and have been given a message from a person named "{from_full_name}". \
+Make that message look like it is comming from you and is addressed to a person named "{to_full_name}". \
+Respect that messages are seperated by two blank lines, and that for each given message you should produce exactly one message. \
+If you cannot determine genders from the names, then assume they are both male.\
 """
-
 
 class GptPortal(Portal):
     openai_client: OpenAI
