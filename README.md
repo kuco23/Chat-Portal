@@ -16,7 +16,15 @@ To implement a message processor and a user matcher, you have to subclass the `P
 
 ## Setup
 
-Run `pip install -r requirements.txt` to install the required packages, then create `.env` file and fill in the fields specified in `.env.template`. To run, execute `python run.py`. You can also change the default settings defined in `config.cfg`.
+Follow the below (basic) steps to set up this project:
+
+1. Clone the repo with `git clone https://github.com/kuco23/Chat-Portal.git`.
+1. Set up your virtual environment with `python -m venv .venv` then run `source .venv/bin/activate` on Linux or `.venv/Scripts/activate` on Windows.
+1. Install dependencies with `pip install -r requirements.txt`.
+1. Create `.env` file and fill in the fields specified in `.env.template`.
+1. Run the program with `python run.py`.
+
+Note that you can also modify the configuration parameters inside `config.cfg`
 
 ## Note
 
