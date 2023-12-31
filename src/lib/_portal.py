@@ -19,7 +19,7 @@ class Portal(IPortal):
 
     def runStep(self):
         try:
-            self._processUnsentMessages()
+            self._forwardUnsentMessages()
             batches = self.social_platform.getNewMessages()
             self._handleMessageBatches(batches)
         except Exception as e:
@@ -53,12 +53,12 @@ class Portal(IPortal):
         # store messages to the database (they need to be available before match finding)
         # note that messages sent before the latest message that is stored in the database
         # will not be stored (to not to process messages before database genesis)
-        i: int = 0
-        message_queue = sorted(messages, key=lambda msg: -msg.timestamp)
-        for i, message in enumerate(message_queue):
-            message_exists = self.database.fetchMessage(message.id) is not None
-            if message_exists: break
-        self.database.addMessages(message_queue[:i])
+        message_stack = sorted(messages, key=lambda msg: -msg.timestamp)
+        i = 0
+        for message in message_stack:
+            if self.database.fetchMessage(message.id) is not None: break
+            i += 1
+        self.database.addMessages(message_stack[:i])
         # try to match the user with another
         if user.match_id is None:
             match = self._bestMatchOf(user)
@@ -68,19 +68,19 @@ class Portal(IPortal):
                 match.match_id = user.id
                 logger.info(f"Portal: assigned match {match.id} to user {user.id}")
                 # if match's messages were processed before this user was available
-                # (or matching was not symmetric) then force-forward match's messages
+                # (or matching criteria was not symmetric) then force-forward match's messages
                 # note that messages will not be double-sent because sending them
                 # is logged in the database - todo: think of a solution
                 logger.info(f"Portal: forward messages from match {match.id} to user {match.id}")
-                self._processAndForwardMessagesFrom(match)
+                self._forwardUserMessages(match)
             else: # no match possible => end here
                 logger.info(f"Portal: could not assign a match to user {user.id}")
                 return
         # if match is available, then process the message and send to the match
         logger.info(f"Portal: forward messages from user {user.id} to match {user.match_id}")
-        self._processAndForwardMessagesFrom(user)
+        self._forwardUserMessages(user)
 
-    def _processAndForwardMessagesFrom(self, user: User):
+    def _forwardUserMessages(self, user: User):
         if user.match_id is None: return
         unsent_messages = self.database.unsentMessagesFrom(user)
         if len(unsent_messages) == 0: return
@@ -94,9 +94,9 @@ class Portal(IPortal):
             self.database.addProcessedMessage(processed_message)
             logger.info(f"Portal: processed message {processed_message.id} sent to user {user.match_id}")
 
-    def _processUnsentMessages(self):
+    def _forwardUnsentMessages(self):
         for user in self.database.fetchMatchedUsers():
-            self._processAndForwardMessagesFrom(user)
+            self._forwardUserMessages(user)
 
     ############################## Methods to override ##############################
 

@@ -22,11 +22,10 @@ class GptPortal(Portal):
         self: "GptPortal",
         database: IDatabase,
         social_platform: ISocialPlatform,
-        openai_client: OpenAI,
         openai_model_name: str
     ):
         super().__init__(database, social_platform)
-        self.openai_client = openai_client
+        self.openai_client = OpenAI() # takes OPENAI_API_KEY from os.environ
         self.openai_model_name = openai_model_name
 
     def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage] | None:

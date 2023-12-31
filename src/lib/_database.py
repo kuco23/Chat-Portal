@@ -3,7 +3,6 @@ from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
 from ..interface import IDatabase
-from ._models import MessageBatch
 from ._entities import Base, User, Message, ProcessedMessage
 
 class Database(IDatabase):
@@ -20,9 +19,9 @@ class Database(IDatabase):
             session.bulk_save_objects(users)
             session.commit()
 
-    def addMessages(self, message: List[Message]):
+    def addMessages(self, messages: List[Message]):
         with Session(self.engine, expire_on_commit=False) as session:
-            session.bulk_save_objects(message)
+            session.bulk_save_objects(messages)
             session.commit()
 
     def markMessageSent(self, message: Message, to_user_id: str):
