@@ -1,5 +1,6 @@
 from typing import List
-from abc import ABC
+from abc import ABC, abstractmethod
+from src.lib._entities import User
 from ..interface import IPortal, ISocialPlatform, IDatabase
 from ._models import MessageBatch
 from ._entities import User, ProcessedMessage
@@ -100,16 +101,18 @@ class AbstractPortal(IPortal, ABC):
     # tries to find a match for the given user
     # it should fetch the messages of user and each match candidate from the database
     # and find the most conversation-compatible ones using some algorithm (e.g. AI)
+    @abstractmethod
     def _bestMatchOf(self, user: User) -> User | None:
-        for test_user in self.database.fetchMatchCandidates(user.id):
-            return test_user
+        raise NotImplementedError()
 
     # processes the message sent to this.user before being forwarded to the sender's match
     # this is necessary, e.g. when this.user is a woman but sender and the match are men
     # e.g. the message is "how does a girl like you find herself on this app?"
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
+    @abstractmethod
     def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
-        return [ProcessedMessage(message.id, message.content) for message in batch.messages]
+        raise NotImplementedError()
+
 
 class Portal(AbstractPortal):
 
@@ -143,3 +146,10 @@ class Portal(AbstractPortal):
             super()._receiveMessageBatch(batch)
         except Exception as e:
             logger.exception(f"ExceptionHandlerPortal: exception occurred while handling message batch: {e}")
+
+    def _bestMatchOf(self, user: User) -> User | None:
+        for test_user in self.database.fetchMatchCandidates(user.id):
+            return test_user
+
+    def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
+        return [ProcessedMessage(message.id, message.content) for message in batch.messages]
