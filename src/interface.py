@@ -36,7 +36,7 @@ class IDatabase(ABC):
 
     # matches a user with another user
     @abstractmethod
-    def matchUsers(self, user1_id: str, user2_id: str): pass
+    def matchUsers(self, user1: User, user2: User): pass
 
     # fetches all users that are candidates for matching with the given user
     @abstractmethod

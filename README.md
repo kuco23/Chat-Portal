@@ -2,8 +2,9 @@
 
 This code implements a social media profile that works as a message portal. For a given social media platform (currently only instagram supported) it listens to new messages and matches the users based on what they have written. Then it forwards each new message to the matched user and vice-versa.
 
-> **IMPORTANT**
 > This project is currently a work in progress.
+
+> Python >= 3.10 is required.
 
 ## Setup
 

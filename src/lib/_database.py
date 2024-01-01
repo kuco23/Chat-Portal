@@ -37,18 +37,13 @@ class Database(IDatabase):
 
     def unsentMessagesFrom(self, user: User) -> List[Message]:
         with Session(self.engine, expire_on_commit=False) as session:
-            return sorted(
-                session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all(),
-                key=lambda message: message.timestamp
-            )
+            return session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all()
 
     # matches a user with another user
-    def matchUsers(self, user1_id: str, user2_id: str):
+    def matchUsers(self, user1: User, user2: User):
         with Session(self.engine, expire_on_commit=False) as session:
-            user1 = session.query(User).filter(User.id == user1_id).one()
-            user2 = session.query(User).filter(User.id == user2_id).one()
-            user1.match_id = user2_id
-            user2.match_id = user1_id
+            user1.match_id = user2.id
+            user2.match_id = user1.id
             session.add(user1)
             session.add(user2)
             session.commit()

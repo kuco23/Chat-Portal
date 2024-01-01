@@ -4,7 +4,6 @@ from ...interface import ISocialPlatform, IDatabase
 from .._models import MessageBatch
 from .._entities import ProcessedMessage
 from .._portal import Portal
-from .._logger import logger
 
 
 SYS_PROMPT_TEMPLATE = """\
@@ -32,29 +31,36 @@ class GptPortal(Portal):
         from_user = self.database.fetchUser(batch.from_user_id)
         to_user = self.database.fetchUser(to_user_id)
         if from_user is None:
-            return logger.error(f"GptPortal: could not find user {batch.from_user_id}")
+            raise Exception("GptPortal: could not find user {batch.from_user_id}")
         if to_user is None:
-            return logger.error(f"GptPortal: could not find user {to_user_id}")
+            raise Exception("GptPortal: could not find user {to_user_id}")
         sys_prompt = SYS_PROMPT_TEMPLATE.format(
             from_full_name=from_user.full_name,
             to_full_name=to_user.full_name
         )
-        usr_prompt = self._messageBatchToPrompt(batch)
-        response = self._callGptApi(sys_prompt, usr_prompt)
-        if response is None: return
-        last_message_id = batch.messages[-1].id
+        user_prompt = self._messageBatchToGptPrompt(batch)
+        gpt_response = self._getGptPromptResponse(sys_prompt, user_prompt)
+        if gpt_response is None:
+            raise Exception("GptPortal: GPT API call returned None")
+        return self._gptResponseToProcessedMessages(gpt_response, batch)
+
+    def _messageBatchToGptPrompt(self, batch: MessageBatch) -> str:
+        return "\n\n".join([msg.content for msg in batch.messages])
+
+    def _gptResponseToProcessedMessages(self, gpt_response: str, batch: MessageBatch) -> List[ProcessedMessage]:
+        processed_messages = gpt_response.split("\n\n")
+        if len(processed_messages) != len(batch.messages):
+            last_message_id = max(batch.messages, key=lambda msg: msg.timestamp).id
+            return [
+                ProcessedMessage(last_message_id, processed_message)
+                for processed_message in processed_messages
+            ]
         return [
-            ProcessedMessage(last_message_id, message)
-            for message in response.split("\n\n")
+            ProcessedMessage(original_message.id, processed_message)
+            for original_message, processed_message in zip(batch.messages, processed_messages)
         ]
 
-    def _messageBatchToPrompt(self, message_batch: MessageBatch) -> str:
-        prompt = ""
-        for message in message_batch.messages:
-            prompt += f"{message.content}\n\n"
-        return prompt
-
-    def _callGptApi(self, prompt_sys: str, prompt_usr: str) -> str | None:
+    def _getGptPromptResponse(self, prompt_sys: str, prompt_usr: str) -> str | None:
         completion = self.openai_client.chat.completions.create(
             model=self.openai_model_name,
             messages=[

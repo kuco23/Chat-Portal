@@ -1,1 +1,1 @@
-from .chatGpt import GptPortal
+from ._gpt_portal import GptPortal
