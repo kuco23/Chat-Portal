@@ -1,7 +1,7 @@
 from typing import List
 from time import sleep
 from instagrapi import Client
-from instagrapi.types import DirectThread
+from instagrapi.types import DirectThread, DirectMessage
 from ...interface import ISocialPlatform, User, Message
 from .._models import MessageBatch
 
@@ -61,14 +61,16 @@ class Instagram(ISocialPlatform):
     def _threadToMessageBatch(self, thread: DirectThread, unanswered: bool) -> MessageBatch | None:
         user_id: str | None = None
         messages: List[Message] = []
-        for message in thread.messages:
-            if message.user_id is None or message.text is None: continue
-            if message.user_id == self.user_id:
+        for direct_message in thread.messages:
+            if direct_message.user_id == self.user_id:
                 if unanswered: break
                 else: continue
-            messages.append(Message(message.id, message.user_id, message.text, message.timestamp.timestamp()))
-            if user_id is None: user_id = message.user_id
-        if user_id is None: return None
+            message = self._directMessageToMessage(direct_message)
+            if message is not None:
+                messages.append(message)
+            if user_id is None:
+                user_id = direct_message.user_id
+        if user_id is None: return
         # user_info does not have an id for some reason, so we gotta get hacky
         # ideally we should check whether thread.users[0].username exists
         # if it does, we should check it matches self.user_id,
@@ -76,6 +78,16 @@ class Instagram(ISocialPlatform):
         user_info = thread.users[0]
         user = User(user_id, username=user_info.username, full_name=user_info.full_name)
         return MessageBatch(user, messages)
+
+    def _directMessageToMessage(self, message: DirectMessage) -> Message | None:
+        if message.user_id is None: return
+        text = ""
+        if message.text is not None:
+            text += message.text
+        elif message.xma_share is not None:
+            text += str(message.xma_share.video_url)
+        else: return
+        return Message(message.id, message.user_id, text, message.timestamp.timestamp())
 
     @staticmethod
     def _secondsToWaitForTypingText(text: str) -> int:
