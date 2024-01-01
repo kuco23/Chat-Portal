@@ -7,9 +7,10 @@ from .._portal import Portal
 
 
 SYS_PROMPT_TEMPLATE = """\
-You are a 13 year old girl named Laila and have been given a message from a person named "{from_full_name}". \
-Make that message look like it is comming from you and is addressed to a person named "{to_full_name}". \
-Respect that messages are seperated by two blank lines, and that for each given message you should produce exactly one message. \
+You are a 13 year old girl named Laila and have been given a series of text messages from a person named "{from_full_name}". \
+Modify those messages in a way that it looks like they are comming from you and are being sent to a person named "{to_full_name}", \
+while preserving the meaning of the messages. \
+Respect that messages are seperated by two blank lines, and that for each featured message you should produce exactly one message. \
 If you cannot determine genders from the names, then assume they are both male.\
 """
 
@@ -42,22 +43,19 @@ class GptPortal(Portal):
         gpt_response = self._getGptPromptResponse(sys_prompt, user_prompt)
         if gpt_response is None:
             raise Exception("GptPortal: GPT API call returned None")
-        return self._gptResponseToProcessedMessages(gpt_response, batch)
+        gpt_messages = self._gptResponseToRawMessages(gpt_response)
+        return self._getProcessedMessages(gpt_messages, batch)
 
-    def _messageBatchToGptPrompt(self, batch: MessageBatch) -> str:
-        return "\n\n".join([msg.content for msg in batch.messages])
-
-    def _gptResponseToProcessedMessages(self, gpt_response: str, batch: MessageBatch) -> List[ProcessedMessage]:
-        processed_messages = gpt_response.split("\n\n")
-        if len(processed_messages) != len(batch.messages):
+    def _getProcessedMessages(self, gpt_messages: List[str], batch: MessageBatch) -> List[ProcessedMessage]:
+        if len(gpt_messages) != len(batch.messages):
             last_message_id = max(batch.messages, key=lambda msg: msg.timestamp).id
             return [
                 ProcessedMessage(last_message_id, processed_message)
-                for processed_message in processed_messages
+                for processed_message in gpt_messages
             ]
         return [
             ProcessedMessage(original_message.id, processed_message)
-            for original_message, processed_message in zip(batch.messages, processed_messages)
+            for original_message, processed_message in zip(batch.messages, gpt_messages)
         ]
 
     def _getGptPromptResponse(self, prompt_sys: str, prompt_usr: str) -> str | None:
@@ -69,3 +67,11 @@ class GptPortal(Portal):
             ]
         )
         return completion.choices[0].message.content
+
+    @staticmethod
+    def _messageBatchToGptPrompt(batch: MessageBatch) -> str:
+        return "\n\n".join([msg.content for msg in batch.messages])
+
+    @staticmethod
+    def _gptResponseToRawMessages(gpt_response: str) -> List[str]:
+        return gpt_response.split("\n\n")

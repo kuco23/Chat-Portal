@@ -20,7 +20,7 @@ class Instagram(ISocialPlatform):
 
     def sendMessage(self, to_user_id: str, message: str) -> bool:
         self.client.direct_threads()
-        sleep(Instagram._secondsToWaitForTypingText(message))
+        sleep(self._secondsToWaitForTypingText(message))
         msg = self.client.direct_send(message, [int(to_user_id)])
         if msg.thread_id is not None:
             self.client.direct_send_seen(int(msg.thread_id))

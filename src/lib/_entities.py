@@ -16,7 +16,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(nullable=True)
     full_name: Mapped[str] = mapped_column(nullable=True) # not obtainable with instagrapi
     gender: Mapped[bool] = mapped_column(nullable=True)
-    match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True)
+    match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True, unique=True)
     # relationships
     match: Mapped["User"] = relationship("User", remote_side=[id], uselist=False)
 
