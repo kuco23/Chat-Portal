@@ -2,7 +2,7 @@ from typing import Optional, List
 from openai import OpenAI
 from ...interface import ISocialPlatform, IDatabase
 from .._models import MessageBatch
-from .._entities import ProcessedMessage
+from .._entities import User, ProcessedMessage
 from .._portal import Portal
 
 
@@ -28,15 +28,9 @@ class GptPortal(Portal):
         self.openai_client = OpenAI() # takes OPENAI_API_KEY from os.environ
         self.openai_model_name = openai_model_name
 
-    def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> Optional[List[ProcessedMessage]]:
-        from_user = self.database.fetchUser(batch.from_user.id)
-        to_user = self.database.fetchUser(to_user_id)
-        if from_user is None:
-            raise Exception("GptPortal: could not find user {batch.from_user_id}")
-        if to_user is None:
-            raise Exception("GptPortal: could not find user {to_user_id}")
+    def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> Optional[List[ProcessedMessage]]:
         sys_prompt = SYS_PROMPT_TEMPLATE.format(
-            from_full_name=from_user.full_name,
+            from_full_name=batch.from_user.full_name,
             to_full_name=to_user.full_name
         )
         user_prompt = self._messageBatchToGptPrompt(batch)

@@ -1,4 +1,5 @@
 from typing import Optional, List
+from random import randint
 from time import sleep
 from instagrapi import Client
 from instagrapi.types import DirectThread, DirectMessage
@@ -92,4 +93,4 @@ class Instagram(ISocialPlatform):
 
     @staticmethod
     def _secondsToWaitForTypingText(text: str) -> int:
-        return len(text) // 3
+        return randint(len(text) // 3, len(text) // 2)
