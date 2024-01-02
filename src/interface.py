@@ -1,4 +1,4 @@
-from typing import List
+from typing import Optional, List
 from abc import ABC, abstractmethod
 from .lib._models import MessageBatch
 from .lib._entities import User, Message, ProcessedMessage
@@ -7,7 +7,7 @@ from .lib._entities import User, Message, ProcessedMessage
 class ISocialPlatform(ABC):
 
     @abstractmethod
-    def sendMessage(self, to_user_id: str, message: str) -> bool: pass
+    def sendMessage(self, to_user: User, message: str) -> bool: pass
 
     @abstractmethod
     def getNewMessages(self) -> List[MessageBatch]: pass
@@ -17,7 +17,7 @@ class ISocialPlatform(ABC):
 
     # gets user with full info (like username, full_name, gender)
     @abstractmethod
-    def getUser(self, user_id: str) -> User: pass
+    def getUser(self, user_id: str) -> Optional[User]: pass
 
 class IDatabase(ABC):
 
@@ -29,10 +29,10 @@ class IDatabase(ABC):
 
     # fetches a user from the database
     @abstractmethod
-    def fetchUser(self, user_id: str) -> User | None: pass
+    def fetchUser(self, user_id: str) -> Optional[User]: pass
 
     @abstractmethod
-    def fetchMessage(self, message_id: str) -> Message | None: pass
+    def fetchMessage(self, message_id: str) -> Optional[Message]: pass
 
     # matches a user with another user
     @abstractmethod
@@ -48,7 +48,7 @@ class IDatabase(ABC):
 
     # marks message sent by setting the to_user_id
     @abstractmethod
-    def markMessageSent(self, message: Message, to_user_id: str): pass
+    def markMessageSent(self, message: Message, to_user: User): pass
 
     # returns all unsent messages from the given user
     @abstractmethod
@@ -67,3 +67,18 @@ class IPortal(ABC):
     # jumpstarts the portal by using social platform's all users and messages
     @abstractmethod
     def jumpstart(self): pass
+
+    ############################## Methods to override ##############################
+
+    # tries to find a match for the given user
+    # it should fetch the messages of user and each match candidate from the database
+    # and find the most conversation-compatible ones using some algorithm (e.g. AI)
+    @abstractmethod
+    def _bestMatchOf(self, user: User) -> Optional[User]: pass
+
+    # processes the message sent to this.user before being forwarded to the sender's match
+    # this is necessary, e.g. when this.user is a woman but sender and the match are men
+    # e.g. the message is "how does a girl like you find herself on this app?"
+    # the message forwarded to the match should be "how does a guy like you find himself on this app?"
+    @abstractmethod
+    def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]: pass

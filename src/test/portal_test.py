@@ -1,3 +1,5 @@
+from typing import List
+from src.lib._entities import User
 from ..interface import ISocialPlatform
 from ..lib._models import MessageBatch
 from ..lib._entities import User, Message
@@ -5,50 +7,69 @@ from ..lib import Portal, Database
 
 
 class MySocialPlatform(ISocialPlatform):
-    cache = None
-    def sendMessage(self, to_user_id: str, message: str):
-        MySocialPlatform.cache = to_user_id, message
+    sent: List[tuple]
+    messages: List[MessageBatch]
+
+    def __init__(self):
+        self.messages = []
+        self.sent = []
+
+    def sendMessage(self, to_user: User, message: str):
+        self.sent.append((to_user, message))
         return True
 
-database = Database("sqlite+pysqlite:///:memory:")
+    def getNewMessages(self):
+        return [self.messages.pop()]
+
+    def getOldMessages(self):
+        raise NotImplementedError()
+
+    def getUser(self, user_id: str) -> User:
+        return User(user_id, user_id)
+
 platform = MySocialPlatform()
+database = Database("sqlite+pysqlite:///:memory:")
 portal = Portal(database, platform)
 
-user1 = User("user1")
-portal.initNewUsers(user1)
-user = database.fetchUser("user1")
-assert user is not None
-assert user.match_id is None
+messageBatch = MessageBatch(User("1", "1"), [Message("1", "1", "Hi there", 0)])
+platform.messages.append(messageBatch)
+portal.runStep()
 
-user2 = User("user2")
-portal.initNewUsers(user2)
-portal.receiveMessageBatch(MessageBatch("user1", [Message("1", "user1", "hello")]))
-user = database.fetchUser(user1.id)
-assert user is not None
-assert user.match_id == "user2"
-assert user.last_message_id == "1"
-user = database.fetchUser(user2.id)
-assert user is not None
-assert user.match_id == "user1"
-assert user.last_message_id is None
+assert len(platform.messages) == 0
+user1 = database.fetchUser("1")
+assert user1 is not None
+assert user1.id == "1"
+assert user1.thread_id == "1"
+assert user1.match_id is None
+assert len(platform.sent) == 0
 
-user3 = User("user3")
-portal.initNewUsers(user3)
-user = database.fetchUser(user3.id)
-assert user is not None
-assert user.match_id is None
+messageBatch = MessageBatch(User("2", "2"), [Message("2", "2", "Hi there too", 1)])
+platform.messages.append(messageBatch)
+portal.runStep()
 
-portal.receiveMessageBatch(MessageBatch("user1", [Message("2", "user1", "hello")]))
-assert MySocialPlatform.cache == ("user2", "hello")
+user2 = database.fetchUser("2")
+assert user2 is not None
+assert user2.id == "2"
+assert user2.thread_id == "2"
+assert user2.match_id == "1"
 
-portal.receiveMessageBatch(MessageBatch("user2", [Message("3", "user2", "hi")]))
-assert MySocialPlatform.cache == ("user1", "hi")
-MySocialPlatform.cache = None
+assert len(platform.sent) == 2
+to_user, msg = platform.sent[0]
+assert msg == "Hi there"
+assert to_user.id == "2"
+to_user, msg = platform.sent[1]
+assert msg == "Hi there too"
+assert to_user.id == "1"
 
-portal.receiveMessageBatch(MessageBatch("user3", [Message("4", "user3", "heya")]))
-assert MySocialPlatform.cache is None
+platform.sent.clear()
+messageBatch = MessageBatch(User("1", "1"), [Message("3", "1", "Hi there again", 3)])
+platform.messages.append(messageBatch)
+portal.runStep()
 
-portal.receiveMessageBatch(MessageBatch("user1", [Message("5", "user1", "how are you?")]))
-assert MySocialPlatform.cache == ("user2", "how are you?")
+assert len(platform.sent) == 1
+to_user, msg = platform.sent[0]
+assert msg == "Hi there again"
+assert to_user.id == "2"
+platform.sent.clear()
 
 print("All tests for _portal.py passed")

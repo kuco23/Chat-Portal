@@ -1,4 +1,4 @@
-from typing import List
+from typing import Optional, List
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
@@ -24,9 +24,9 @@ class Database(IDatabase):
             session.bulk_save_objects(messages)
             session.commit()
 
-    def markMessageSent(self, message: Message, to_user_id: str):
+    def markMessageSent(self, message: Message, to_user: User):
         with Session(self.engine, expire_on_commit=False) as session:
-            message.to_user_id = to_user_id
+            message.to_user_id = to_user.id
             session.add(message)
             session.commit()
 
@@ -48,11 +48,11 @@ class Database(IDatabase):
             session.add(user2)
             session.commit()
 
-    def fetchUser(self, user_id: str) -> User | None:
+    def fetchUser(self, user_id: str) -> Optional[User]:
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(User).filter(User.id == user_id).one_or_none()
 
-    def fetchMessage(self, message_id: str) -> Message | None:
+    def fetchMessage(self, message_id: str) -> Optional[Message]:
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(Message).filter(Message.id == message_id).one_or_none()
 

@@ -5,29 +5,26 @@ from ..lib import Database
 database = Database("sqlite+pysqlite:///:memory:")
 
 for user_id in ["user1", "user2", "user3"]:
-    database.addUser(User(id=user_id))
+    database.addUsers([User(user_id, user_id)])
     user = database.fetchUser(user_id)
     assert user is not None
     assert user.id == user_id
+    assert user.thread_id == user_id
     assert user.match_id is None
-    assert user.last_message_id is None
 
 for i, user_id in enumerate(["user1", "user2", "user3"]):
-    message = Message(id=str(i), from_user_id=user_id, content="hello")
-    database.addMessage(user_id, message)
-    user = database.fetchUser(user_id)
-    assert user is not None
-    assert user.id == user_id
-    assert user.last_message_id == message.id
+    message = Message(str(i), user_id, "hello", i)
+    database.addMessages([message])
+    message = database.fetchMessage(str(i))
+    assert message is not None
+    assert message.id == str(i)
+    assert message.from_user_id == user_id
+    assert message.content == "hello"
+    assert message.timestamp == i
 
-message = Message(id="4", from_user_id="user1", content="new message")
-database.addMessage("user2", message)
-user = database.fetchUser("user1")
-assert user is not None
-assert user.id == "user1"
-assert user.last_message_id == message.id
-
-database.matchUsers("user1", "user2")
+assert (user1 := database.fetchUser("user1")) is not None
+assert (user2 := database.fetchUser("user2")) is not None
+database.matchUsers(user1, user2)
 for user_id in ["user1", "user2"]:
     user = database.fetchUser(user_id)
     assert user is not None

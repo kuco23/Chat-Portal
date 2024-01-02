@@ -11,22 +11,28 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "user"
-
+    # ids
     id: Mapped[str] = mapped_column(primary_key=True)
+    thread_id: Mapped[str] = mapped_column(unique=True)
+    # user info
     username: Mapped[str] = mapped_column(nullable=True)
     full_name: Mapped[str] = mapped_column(nullable=True) # not obtainable with instagrapi
     gender: Mapped[bool] = mapped_column(nullable=True)
     match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True, unique=True)
     # relationships
     match: Mapped["User"] = relationship("User", remote_side=[id], uselist=False)
+    # flags
+    via_init: bool = False
 
-    def __init__(self, id: str, **kwargs):
-        super().__init__(id=id, **kwargs)
+    def __init__(self, id: str, thread_id: str, **kwargs):
+        super().__init__(id=id, thread_id=thread_id, **kwargs)
+        self.via_init = True # this is used to distinguish between users created by the database and users created by the portal
 
 class Message(Base):
     __tablename__ = "message"
-
+    # ids
     id: Mapped[str] = mapped_column(primary_key=True)
+    # message info
     content: Mapped[str] = mapped_column()
     timestamp: Mapped[float] = mapped_column()
     from_user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))

@@ -1,5 +1,4 @@
-from typing import List
-from abc import ABC, abstractmethod
+from typing import Optional, List
 from src.lib._entities import User
 from ..interface import IPortal, ISocialPlatform, IDatabase
 from ._models import MessageBatch
@@ -7,7 +6,7 @@ from ._entities import User, ProcessedMessage
 from ._logger import logger
 
 
-class AbstractPortal(IPortal, ABC):
+class AbstractPortal(IPortal):
     database: IDatabase
     social_platform: ISocialPlatform
 
@@ -23,23 +22,17 @@ class AbstractPortal(IPortal, ABC):
 
     def _receiveMessageBatches(self, batches: List[MessageBatch]):
         for batch in batches:
-            logger.info(f"Portal: handling {len(batch.messages)} length message batch from user {batch.from_user_id}")
+            logger.info(f"Portal: handling {len(batch.messages)} length message batch from user {batch.from_user.id}")
             self._receiveMessageBatch(batch)
-            logger.info(f"Portal: handled message batch from user {batch.from_user_id}")
+            logger.info(f"Portal: handled message batch from user {batch.from_user.id}")
 
     def _receiveMessageBatch(self, batch: MessageBatch):
         if len(batch.messages) == 0: return
-        user = self.database.fetchUser(batch.from_user_id)
+        user = self.database.fetchUser(batch.from_user.id)
         # if user is not in the database, then add them
         if user is None:
-            if type(batch.from_user) is str:
-                # if only id is present, then fetch the user from the social platform
-                user = self.social_platform.getUser(batch.from_user)
-            elif type(batch.from_user) is User:
-                # if all info is present, then add the user to the database
-                user = batch.from_user
-            else: return
-            self.database.addUsers([user])
+            self.database.addUsers([batch.from_user])
+            assert (user := self.database.fetchUser(batch.from_user.id)) is not None
             logger.info(f"Portal: initialized new user {user.id} as a message batch sender")
         # store messages to the database (they need to be available before match finding)
         # note that messages sent before the latest message that is stored in the database
@@ -68,50 +61,33 @@ class AbstractPortal(IPortal, ABC):
         self._forwardUserMessages(user)
 
     def _forwardUserMessages(self, user: User):
-        if user.match_id is None: return
+        assert (match := self.database.fetchUser(user.match_id)) is not None
         unsent_messages = self.database.unsentMessagesFrom(user)
         if len(unsent_messages) == 0: return
         unsent_messages.sort(key=lambda msg: msg.timestamp)
-        logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {user.match_id}")
-        processed_messages = self._processMessageBatch(MessageBatch(user.id, unsent_messages), user.match_id)
+        logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {match.id}")
+        processed_messages = self._processMessageBatch(MessageBatch(user, unsent_messages), match)
         # forward processed messages to the match
         last_unsent_index = 0
         for processed_message in processed_messages:
-            self.social_platform.sendMessage(user.match_id, processed_message.content)
+            self.social_platform.sendMessage(match, processed_message.content)
             # mark every message before processed_message.original_message_id as sent
             for i in range(last_unsent_index, len(unsent_messages)):
                 original_message = unsent_messages[i]
-                self.database.markMessageSent(original_message, user.match_id)
+                self.database.markMessageSent(original_message, match)
                 last_unsent_index += 1
                 if original_message.id == processed_message.original_message_id:
                     break
             # add processed message to the database
             self.database.addProcessedMessage(processed_message)
-            logger.info(f"Portal: processed message {processed_message.id} sent to user {user.match_id}")
+            logger.info(f"Portal: processed message {processed_message.id} sent to user {match.id}")
         # mark the rest of the messages as sent
         for i in range(last_unsent_index, len(unsent_messages)):
-            self.database.markMessageSent(unsent_messages[i], user.match_id)
+            self.database.markMessageSent(unsent_messages[i], match)
 
     def _forwardUnsentMessages(self):
         for user in self.database.fetchMatchedUsers():
             self._forwardUserMessages(user)
-
-    ############################## Methods to override ##############################
-
-    # tries to find a match for the given user
-    # it should fetch the messages of user and each match candidate from the database
-    # and find the most conversation-compatible ones using some algorithm (e.g. AI)
-    @abstractmethod
-    def _bestMatchOf(self, user: User) -> User | None:
-        raise NotImplementedError()
-
-    # processes the message sent to this.user before being forwarded to the sender's match
-    # this is necessary, e.g. when this.user is a woman but sender and the match are men
-    # e.g. the message is "how does a girl like you find herself on this app?"
-    # the message forwarded to the match should be "how does a guy like you find himself on this app?"
-    @abstractmethod
-    def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
-        raise NotImplementedError()
 
 
 class Portal(AbstractPortal):
@@ -147,9 +123,9 @@ class Portal(AbstractPortal):
         except Exception as e:
             logger.exception(f"ExceptionHandlerPortal: exception occurred while handling message batch: {e}")
 
-    def _bestMatchOf(self, user: User) -> User | None:
+    def _bestMatchOf(self, user: User) -> Optional[User]:
         for test_user in self.database.fetchMatchCandidates(user.id):
             return test_user
 
-    def _processMessageBatch(self, batch: MessageBatch, to_user_id: str) -> List[ProcessedMessage]:
+    def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]:
         return [ProcessedMessage(message.id, message.content) for message in batch.messages]
