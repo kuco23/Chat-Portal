@@ -1,9 +1,9 @@
 from typing import List
-from src.lib._entities import User
 from ..interface import ISocialPlatform
-from ..lib._models import MessageBatch
-from ..lib._entities import User, Message
-from ..lib import Portal, Database
+from .._entities import User
+from .._models import MessageBatch
+from .._entities import User, Message
+from .. import Portal, Database
 
 
 class MySocialPlatform(ISocialPlatform):

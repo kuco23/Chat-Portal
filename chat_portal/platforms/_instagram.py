@@ -3,7 +3,7 @@ from random import randint
 from time import sleep
 from instagrapi import Client
 from instagrapi.types import DirectThread, DirectMessage
-from ...interface import ISocialPlatform, User, Message
+from ..interface import ISocialPlatform, User, Message
 from .._models import MessageBatch
 
 

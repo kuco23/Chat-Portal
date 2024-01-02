@@ -2,7 +2,7 @@ from typing import Optional, List
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
-from ..interface import IDatabase
+from .interface import IDatabase
 from ._entities import Base, User, Message, ProcessedMessage
 
 class Database(IDatabase):

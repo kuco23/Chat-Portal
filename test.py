@@ -1,2 +1,2 @@
-import src.test.database_test
-import src.test.portal_test
+import chat_portal.test.database_test
+import chat_portal.test.portal_test

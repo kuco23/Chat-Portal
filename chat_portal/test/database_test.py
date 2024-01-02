@@ -1,6 +1,5 @@
-from ..lib._entities import User, Message
-from ..lib import Database
-
+from .._entities import User, Message
+from .. import Database
 
 database = Database("sqlite+pysqlite:///:memory:")
 

@@ -1,6 +1,5 @@
 from typing import Optional, List
-from src.lib._entities import User
-from ..interface import IPortal, ISocialPlatform, IDatabase
+from .interface import IPortal, ISocialPlatform, IDatabase
 from ._models import MessageBatch
 from ._entities import User, ProcessedMessage
 from ._logger import logger

@@ -3,7 +3,7 @@ from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
 from sqlalchemy_utils import database_exists
-from src import Database, Instagram, GptPortal
+from chat_portal import Database, Instagram, GptPortal
 
 # take program config from config.cfg
 # and environment variables from .env

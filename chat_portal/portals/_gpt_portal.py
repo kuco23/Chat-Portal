@@ -1,6 +1,6 @@
 from typing import Optional, List
 from openai import OpenAI
-from ...interface import ISocialPlatform, IDatabase
+from ..interface import ISocialPlatform, IDatabase
 from .._models import MessageBatch
 from .._entities import User, ProcessedMessage
 from .._portal import Portal

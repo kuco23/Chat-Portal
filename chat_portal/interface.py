@@ -1,7 +1,7 @@
 from typing import Optional, List
 from abc import ABC, abstractmethod
-from .lib._models import MessageBatch
-from .lib._entities import User, Message, ProcessedMessage
+from ._models import MessageBatch
+from ._entities import User, Message, ProcessedMessage
 
 
 class ISocialPlatform(ABC):
