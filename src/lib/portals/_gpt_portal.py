@@ -7,9 +7,9 @@ from .._portal import Portal
 
 
 SYS_PROMPT_TEMPLATE = """\
-You are a 13 year old girl named Laila and have been given a series of text messages from a person named "{from_full_name}". \
-Modify those messages in a way that it looks like they are comming from you and are being sent to a person named "{to_full_name}", \
-while preserving the meaning of the messages. \
+You are a 13 year old girl named Laila and have been given a series of text messages from a person named "{from_name}". \
+Modify those messages in a way that it looks like they are comming from you and are being sent to a person named "{to_name}", \
+while preserving the meaning of the messages and modifying them as little as possible. \
 Respect that messages are seperated by two blank lines, and that for each featured message you should produce exactly one message. \
 If you cannot determine genders from the names, then assume they are both male.\
 """
@@ -30,8 +30,8 @@ class GptPortal(Portal):
 
     def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> Optional[List[ProcessedMessage]]:
         sys_prompt = SYS_PROMPT_TEMPLATE.format(
-            from_full_name=batch.from_user.full_name,
-            to_full_name=to_user.full_name
+            from_name=batch.from_user.full_name or batch.from_user.username,
+            to_name=to_user.full_name or to_user.username
         )
         user_prompt = self._messageBatchToGptPrompt(batch)
         gpt_response = self._getGptPromptResponse(sys_prompt, user_prompt)
