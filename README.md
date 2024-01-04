@@ -1,6 +1,6 @@
 # Social Media Profile Portal
 
-This code automates a social media profile, currently Instagram, that functions as a message exchange portal. It monitors incoming messages, pairs users based on their message content, and then relays each new message between matched users. The current implementation uses chatGPT to make it look like the messages are coming from the automated profile and are addressed to the matched user.
+This code automates a social media profile and makes it functions as a message exchange portal. It monitors incoming messages, pairs users based on their message content, and then relays each new message between matched users. The current implementation uses instagram as a social platform and chatGPT to modify relayed messages in a way that makes it seem like they are comming from the automated profile.
 
 > Python >= 3.10 is required.
 
@@ -21,9 +21,9 @@ Note that you can also modify the default configuration parameters inside `confi
 The code is modular, cosisting of parts described by interfaces inside `src/interface.py`. The main code module is the `Portal` class with the `IPortal` interface, which is initialized by a `IDatabase` interfaced class and an `ISocialPlatform` interfaced class.
 
 - The `IDatabase` interface is implemented by the `Database` class, which is a wrapper around an `SqlAlchemy` orm.
-- The `ISocialPlatform` interface is implemented by the `Instagram` class, which is a wrapper around the [instagrapi](https://github.com/subzeroid/instagrapi) library. You can implement more social media platforms inside the `src/platforms/` folder.
-- The `IPortal` interface is implemented by the `Portal` abstract class, which is inherited by the `ChatGpt` class. You can implement more portals inside the `src/portals/` folder.
+- The `ISocialPlatform` interface is implemented by the `Instagram` class, which is a wrapper around the [instagrapi](https://github.com/subzeroid/instagrapi) library. You can implement more social media platforms inside the `src/platforms` folder.
+- The `IPortal` interface is implemented by the `Portal` abstract class, which is inherited by the `GptPortal` class. You can implement more portals inside the `src/portals` folder.
 
 ## Notes about implementation
 
-Note that ideally the social media platform api used would stream newly received messages (e.g. as implemented in [fbchat](https://github.com/fbchat-dev/fbchat)), but that is usually not the case (e.g. as with [instagrapi](https://github.com/subzeroid/instagrapi)), so our interface is adjusted to messages being fetched from the social media server in batches. If your social platform implementation can stream messages, you should store them in a buffer and return them in the `getNewMessages` method.
+Ideally the social media platform api used would stream newly received messages (e.g. as implemented in [fbchat](https://github.com/fbchat-dev/fbchat)), but that is usually not the case (e.g. as with [instagrapi](https://github.com/subzeroid/instagrapi)), so our interface is adjusted to messages being fetched from the social media server in batches. If your social platform implementation can stream messages, you should store them in a buffer and return them in the `getNewMessages` method.
