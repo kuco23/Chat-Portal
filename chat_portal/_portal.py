@@ -25,47 +25,27 @@ class AbstractPortal(IPortal):
             self._receiveMessageBatch(batch)
             logger.info(f"Portal: handled message batch from user {batch.from_user.id}")
 
+    # think before changing the order of the included methods
     def _receiveMessageBatch(self, batch: MessageBatch):
         if len(batch.messages) == 0: return
-        user = self.database.fetchUser(batch.from_user.id)
-        # if user is not in the database, then add them
-        if user is None:
-            self.database.addUsers([batch.from_user])
-            assert (user := self.database.fetchUser(batch.from_user.id)) is not None
-            logger.info(f"Portal: initialized new user {user.id} as a message batch sender")
-        # store messages to the database (they need to be available before match finding)
-        # note that messages sent before the latest message that is stored in the database
-        # will not be stored (to not to process messages before database genesis)
-        message_stack = sorted(batch.messages, key=lambda msg: -msg.timestamp)
-        i = 0
-        for message in message_stack:
-            if self.database.fetchMessage(message.id) is not None: break
-            i += 1
-        self.database.addMessages(message_stack[:i])
-        # try to match the user with another
-        if user.match_id is None:
-            match = self._bestMatchOf(user)
-            if match is not None:
-                self.database.matchUsers(user, match) # user entities are updated
-                logger.info(f"Portal: assigned match {match.id} to user {user.id}")
-                # if match's messages were processed before this user was available
-                # (or matching criteria was not symmetric) then force-forward match's messages
-                logger.info(f"Portal: forward messages from new match {match.id} to user {user.id}")
-                self._forwardUserMessages(match)
-            else: # no match possible => end here
-                logger.info(f"Portal: could not assign a match to user {user.id}")
-                return
-        # if match is available, then process the message and send to the match
-        logger.info(f"Portal: forward messages from user {user.id} to match {user.match_id}")
-        self._forwardUserMessages(user)
+        user = self._fetchOrCreateUser(batch.from_user) # redefine user with the actual db entity!
+        self._storeNewMessages(batch) # store new messages, so they are available in the next steps
+        if self._matchAvailable(user): # check if user can be (or already is) matched
+            self._forwardUserMessages(user) # forward unsent messages to user's match
+
+    def _forwardUnsentMessages(self):
+        for user in self.database.fetchMatchedUsers():
+            self._forwardUserMessages(user)
 
     def _forwardUserMessages(self, user: User):
+        assert user.match_id is not None
         assert (match := self.database.fetchUser(user.match_id)) is not None
         unsent_messages = self.database.unsentMessagesFrom(user)
         if len(unsent_messages) == 0: return
         unsent_messages.sort(key=lambda msg: msg.timestamp)
         logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {match.id}")
         processed_messages = self._processMessageBatch(MessageBatch(user, unsent_messages), match)
+        logger.info(f"Portal: sending {len(processed_messages)} processed messages from user {user.id} to user {match.id}")
         # forward processed messages to the match
         last_unsent_index = 0
         for processed_message in processed_messages:
@@ -84,9 +64,38 @@ class AbstractPortal(IPortal):
         for i in range(last_unsent_index, len(unsent_messages)):
             self.database.markMessageSent(unsent_messages[i], match)
 
-    def _forwardUnsentMessages(self):
-        for user in self.database.fetchMatchedUsers():
-            self._forwardUserMessages(user)
+    def _fetchOrCreateUser(self, _user: User) -> User:
+        user = self.database.fetchUser(_user.id)
+        if user is None:
+            self.database.addUsers([_user])
+            assert (user := self.database.fetchUser(_user.id)) is not None
+            logger.info(f"Portal: initialized new user {user.id}")
+        return user
+
+    def _storeNewMessages(self, batch: MessageBatch):
+        # messages sent before the latest message that is stored in the database
+        # will not be stored (to not to process messages before database genesis)
+        message_stack = sorted(batch.messages, key=lambda msg: -msg.timestamp)
+        i = 0
+        for message in message_stack:
+            if self.database.fetchMessage(message.id) is not None: break
+            i += 1
+        self.database.addMessages(message_stack[:i])
+
+    def _matchAvailable(self, user: User) -> bool:
+        if user.match_id is None:
+            match = self._bestMatchOf(user)
+            if match is not None:
+                self.database.matchUsers(user, match) # user entities are updated
+                logger.info(f"Portal: assigned match {match.id} to user {user.id}")
+                # if match's messages were processed before this user was available
+                # (or matching criteria was not symmetric) then force-forward match's messages
+                logger.info(f"Portal: forward messages from new match {match.id} to user {user.id}")
+                self._forwardUserMessages(match)
+            else: # no match possible => end here
+                logger.info(f"Portal: could not assign a match to user {user.id}")
+                return False
+        return True
 
 
 class Portal(AbstractPortal):
