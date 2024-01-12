@@ -82,3 +82,10 @@ class IPortal(ABC):
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
     @abstractmethod
     def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]: pass
+
+    # decides whether the messages are ready to be sent
+    # this is necessary if we are simulating rare replies where we don't want to forward messages immediately
+    # this can be viewed as adapting to limitation of not being able to stream messages from the social platform
+    # or as simulating the fact that people don't reply immediately and also batch messages together when they do
+    @abstractmethod
+    def _messagesReadyToBeSent(self, messages: List[Message], from_user: User, to_user: User) -> bool: pass

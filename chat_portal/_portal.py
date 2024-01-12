@@ -1,7 +1,9 @@
 from typing import Optional, List
+from random import gauss
+from datetime import datetime
 from .interface import IPortal, ISocialPlatform, IDatabase
 from ._models import MessageBatch
-from ._entities import User, ProcessedMessage
+from ._entities import User, Message, ProcessedMessage
 from ._logger import logger
 
 
@@ -41,7 +43,7 @@ class AbstractPortal(IPortal):
         assert user.match_id is not None
         assert (match := self.database.fetchUser(user.match_id)) is not None
         unsent_messages = self.database.unsentMessagesFrom(user)
-        if len(unsent_messages) == 0: return
+        if len(unsent_messages) == 0 or not self._messagesReadyToBeSent(unsent_messages, user, match): return
         unsent_messages.sort(key=lambda msg: msg.timestamp)
         logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {match.id}")
         processed_messages = self._processMessageBatch(MessageBatch(user, unsent_messages), match)
@@ -97,6 +99,9 @@ class AbstractPortal(IPortal):
                 return False
         return True
 
+    def _filterMessagesToSendNow(self, messages: List[Message]) -> List[Message]:
+        return messages
+
 
 class Portal(AbstractPortal):
 
@@ -137,3 +142,10 @@ class Portal(AbstractPortal):
 
     def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]:
         return [ProcessedMessage(message.id, message.content) for message in batch.messages]
+
+    # fix this to reply after N(median hours,delta) distributed time units
+    def _messagesReadyToBeSent(self, messages: List[Message], from_user: User, to_user: User) -> bool:
+        if len(messages) == 0: return False
+        latest_timestamp = max(map(lambda msg: msg.timestamp, messages))
+        unresponsive_seconds = max(abs(int(gauss(3600, 1500))), 600) # around an hour, min 10 minuets
+        return latest_timestamp >= datetime.now().timestamp() + unresponsive_seconds
