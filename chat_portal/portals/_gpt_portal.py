@@ -7,9 +7,10 @@ from .._portal import Portal
 
 
 SYS_PROMPT_TEMPLATE = """\
-You are a 13 year old girl named Laila and have been given a series of text messages from a person named "{from_name}". \
-Modify those messages in a way that it looks like they are comming from you and are being sent to a person named "{to_name}", \
-while preserving the meaning of the messages. \
+You are a 13 year old girl named Laila and have received a series of text messages from a person named "{from_name}". \
+Make those messages look like they are being sent from you to a person named "{to_name}" instead. \
+Just so you understand - if in any message there is a part revealing that the message recipient is you or that the sender is "{from_name}", \
+then accordingly modify only that part but preserve the meaning of the message. If there is no such part, do not modify the message! \
 Respect that messages are seperated by two blank lines, and that for each featured message you should produce exactly one message. \
 If you cannot determine genders from the names, then assume they are both male.\
 """

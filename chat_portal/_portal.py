@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 from random import gauss
 from datetime import datetime
 from .interface import IPortal, ISocialPlatform, IDatabase
@@ -43,8 +43,9 @@ class AbstractPortal(IPortal):
         assert user.match_id is not None
         assert (match := self.database.fetchUser(user.match_id)) is not None
         unsent_messages = self.database.unsentMessagesFrom(user)
-        if len(unsent_messages) == 0 or not self._messagesReadyToBeSent(unsent_messages, user, match): return
         unsent_messages.sort(key=lambda msg: msg.timestamp)
+        if len(unsent_messages) == 0 or self._messagesReadyToBeSent(unsent_messages, user, match):
+            return
         logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {match.id}")
         processed_messages = self._processMessageBatch(MessageBatch(user, unsent_messages), match)
         logger.info(f"Portal: sending {len(processed_messages)} processed messages from user {user.id} to user {match.id}")
@@ -99,11 +100,9 @@ class AbstractPortal(IPortal):
                 return False
         return True
 
-    def _filterMessagesToSendNow(self, messages: List[Message]) -> List[Message]:
-        return messages
-
 
 class Portal(AbstractPortal):
+    _delay_messages_from: Dict[str, int] # time to delay forwarding of messages from user to match
 
     def __init__(self,
         database: IDatabase,
@@ -111,6 +110,7 @@ class Portal(AbstractPortal):
     ):
         self.database = database
         self.social_platform = social_platform
+        self._delay_messages_from = dict()
 
     def jumpstart(self):
         try:
@@ -146,6 +146,13 @@ class Portal(AbstractPortal):
     # fix this to reply after N(median hours,delta) distributed time units
     def _messagesReadyToBeSent(self, messages: List[Message], from_user: User, to_user: User) -> bool:
         if len(messages) == 0: return False
+        delay = self._delay_messages_from.get(from_user.id)
+        if delay is None:
+            delay = max(abs(int(gauss(3600, 1500))), 600) # around an hour, min 10 minutes
+            self._delay_messages_from[from_user.id] = delay
         latest_timestamp = max(map(lambda msg: msg.timestamp, messages))
-        unresponsive_seconds = max(abs(int(gauss(3600, 1500))), 600) # around an hour, min 10 minuets
-        return latest_timestamp >= datetime.now().timestamp() + unresponsive_seconds
+        if latest_timestamp < datetime.now().timestamp() + delay:
+            return False
+        else:
+            del self._delay_messages_from[from_user.id]
+            return True
