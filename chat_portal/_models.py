@@ -1,8 +1,8 @@
 from typing import List
 from dataclasses import dataclass
-from ._entities import User, Message
+from ._entities import User, ReceivedMessage, ModifiedMessage
 
 @dataclass
-class MessageBatch:
+class ReceivedMessageBatch:
     from_user: User
-    messages: List[Message]
+    messages: List[ReceivedMessage]

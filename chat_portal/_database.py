@@ -1,9 +1,10 @@
-from typing import Optional, List
+from typing import List
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
+from chat_portal._entities import ModifiedMessage, ReceivedMessage
 from .interface import IDatabase
-from ._entities import Base, User, Message, ProcessedMessage
+from ._entities import Base, User, Message
 
 class Database(IDatabase):
     engine: Engine
@@ -14,32 +15,61 @@ class Database(IDatabase):
             create_database(db_url)
         Base.metadata.create_all(self.engine)
 
-    def addUsers(self, users: List[User]):
+    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage]):
         with Session(self.engine, expire_on_commit=False) as session:
-            session.bulk_save_objects(users)
+            session.bulk_save_objects(entities)
             session.commit()
 
-    def addMessages(self, messages: List[Message]):
-        with Session(self.engine, expire_on_commit=False) as session:
-            session.bulk_save_objects(messages)
-            session.commit()
+    ################################### fetching entities ######################################################
 
-    def markMessageSent(self, message: Message, to_user: User):
+    def fetchUser(self, user_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
-            message.to_user_id = to_user.id
+            return session.query(User).filter(User.id == user_id).one_or_none()
+
+    def fetchReceivedMessage(self, message_id: str):
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(ReceivedMessage).filter(ReceivedMessage.id == message_id).one_or_none()
+
+    def fetchModifiedMessage(self, message_id: str):
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(ModifiedMessage).filter(ModifiedMessage.id == message_id).one_or_none()
+
+    def unprocessedMessagesFrom(self, user: User):
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(ReceivedMessage).filter(
+                ReceivedMessage.thread_id == user.thread_id,
+                ReceivedMessage.processed == False
+            ).order_by(ReceivedMessage.timestamp.asc()).all()
+
+    def unsentMessagesTo(self, user: User):
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(ModifiedMessage).filter(
+                ModifiedMessage.thread_id == user.thread_id,
+                ModifiedMessage.sent == False
+            ).order_by(ModifiedMessage.timestamp.asc()).all()
+
+    def matchedUsers(self) -> List[User]:
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(User).filter(User.match_id.is_not(None)).all()
+
+    def matchCandidatesOf(self, user_id: str) -> List[User]:
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(User).filter(User.id != user_id, User.match_id.is_(None)).all()
+
+    ################################### updating entities ######################################################
+
+    def markMessageProcessed(self, message: ReceivedMessage):
+        with Session(self.engine, expire_on_commit=False) as session:
+            message.processed = True
             session.add(message)
             session.commit()
 
-    def addProcessedMessage(self, message: ProcessedMessage):
+    def markMessageSent(self, message: ModifiedMessage):
         with Session(self.engine, expire_on_commit=False) as session:
+            message.sent = True
             session.add(message)
             session.commit()
 
-    def unsentMessagesFrom(self, user: User) -> List[Message]:
-        with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(Message).filter(Message.from_user_id == user.id, Message.to_user_id.is_(None)).all()
-
-    # matches a user with another user
     def matchUsers(self, user1: User, user2: User):
         with Session(self.engine, expire_on_commit=False) as session:
             user1.match_id = user2.id
@@ -48,19 +78,21 @@ class Database(IDatabase):
             session.add(user2)
             session.commit()
 
-    def fetchUser(self, user_id: str) -> Optional[User]:
-        with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.id == user_id).one_or_none()
 
-    def fetchMessage(self, message_id: str) -> Optional[Message]:
-        with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(Message).filter(Message.id == message_id).one_or_none()
+    ################################### advanced ###############################################################
 
-    def fetchMatchedUsers(self) -> List[User]:
+    def userFromThread(self, thread_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.match_id.is_not(None)).all()
+            return session.query(User).filter(User.thread_id == thread_id).one_or_none()
 
-    # fetches all users that are candidates for matching with the given user
-    def fetchMatchCandidates(self, user_id: str) -> List[User]:
+    def conversationHistory(self, thread_id: str, before_timestamp: float, n_context_msg: int) -> List[Message]:
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.id != user_id, User.match_id.is_(None)).all()
+            messages = session.query(Message).filter(
+                Message.thread_id == thread_id,
+                Message.timestamp >= before_timestamp
+            ).order_by(Message.timestamp.asc()).all()
+            context = session.query(Message).filter(
+                Message.thread_id == thread_id,
+                Message.timestamp < before_timestamp
+            ).order_by(Message.timestamp.desc()).limit(n_context_msg).all()
+            return context[::-1] + messages

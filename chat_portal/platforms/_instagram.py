@@ -3,8 +3,9 @@ from random import randint
 from time import sleep
 from instagrapi import Client
 from instagrapi.types import DirectThread, DirectMessage
-from ..interface import ISocialPlatform, User, Message
-from .._models import MessageBatch
+from .._models import ReceivedMessageBatch
+from .._entities import ReceivedMessage
+from ..interface import ISocialPlatform, User
 
 
 THREAD_FETCH_LIMIT = 20
@@ -21,36 +22,37 @@ class Instagram(ISocialPlatform):
 
     def sendMessage(self, to_user: User, message: str) -> bool:
         self.client.direct_send_seen(int(to_user.thread_id))
-        sleep(self._secondsToWaitForTypingText(message))
+        sleep(Instagram._secondsToWaitForTypingText(message))
         self.client.direct_send(message, [int(to_user.id)])
         return True # fix to return whether message was successfully sent
 
-    def getNewMessages(self) -> List[MessageBatch]:
-        new_approved = self._getApprovedMessages(False)
+    def getNewMessages(self) -> List[ReceivedMessageBatch]:
+        new_approved = self._getApprovedMessages(True)
         new_pending = self._getPendingMessages()
         return new_approved + new_pending
 
-    def getOldMessages(self) -> List[MessageBatch]:
+    def getOldMessages(self) -> List[ReceivedMessageBatch]:
         return self._getApprovedMessages(True)
 
     def getUser(self, user_id: str) -> Optional[User]:
         user_info = self.client.user_info(user_id)
         resp = self.client.direct_thread_by_participants([int(user_id)])
         threads = resp.get('items')
-        if threads is None or len(threads) == 0: return
-        return User(user_id, threads[0].id, username=user_info.username, full_name=user_info.full_name)
+        if threads is not None and len(threads) > 0:
+            thread_id = threads[0].id
+        if thread_id is None: return
+        return User(user_id, thread_id, username=user_info.username, full_name=user_info.full_name)
 
-    def _getApprovedMessages(self, old: bool) -> List[MessageBatch]:
-        batches: List[MessageBatch] = []
+    def _getApprovedMessages(self, old: bool) -> List[ReceivedMessageBatch]:
+        batches: List[ReceivedMessageBatch] = []
         threads = self.client.direct_threads(THREAD_FETCH_LIMIT, "" if old else "unread", "", THREAD_MSG_LIMIT)
         for thread in threads:
-            batch = self._threadToMessageBatch(thread, old)
-            if batch is not None:
-                batches.append(batch)
+            batch = self._threadToMessageBatch(thread, not old)
+            if batch is not None: batches.append(batch)
         return batches
 
-    def _getPendingMessages(self) -> List[MessageBatch]:
-        batches: List[MessageBatch] = []
+    def _getPendingMessages(self) -> List[ReceivedMessageBatch]:
+        batches: List[ReceivedMessageBatch] = []
         threads = self.client.direct_pending_inbox()
         for thread in threads:
             if thread.id is None: continue
@@ -60,14 +62,14 @@ class Instagram(ISocialPlatform):
         return batches
 
     # if unanwered then return only messages that were sent without our user replying
-    def _threadToMessageBatch(self, thread: DirectThread, unanswered: bool) -> Optional[MessageBatch]:
+    def _threadToMessageBatch(self, thread: DirectThread, unanswered: bool) -> Optional[ReceivedMessageBatch]:
         user_id: Optional[str] = None
-        messages: List[Message] = []
+        messages: List[ReceivedMessage] = []
         for direct_message in thread.messages:
             if direct_message.user_id == self.user_id:
                 if unanswered: break
                 else: continue
-            message = self._directMessageToMessage(direct_message)
+            message = self._directMessageToReceivedMessage(direct_message, thread.id)
             if message is not None:
                 messages.append(message)
             if user_id is None:
@@ -79,9 +81,9 @@ class Instagram(ISocialPlatform):
         # else we should fetch the user's info with self.getUser(user_id)
         user_info = thread.users[0]
         user = User(user_id, thread.id, username=user_info.username, full_name=user_info.full_name)
-        return MessageBatch(user, messages)
+        return ReceivedMessageBatch(user, messages)
 
-    def _directMessageToMessage(self, message: DirectMessage) -> Optional[Message]:
+    def _directMessageToReceivedMessage(self, message: DirectMessage, thread_id: str) -> Optional[ReceivedMessage]:
         if message.user_id is None: return
         text = ""
         if message.text is not None:
@@ -89,7 +91,7 @@ class Instagram(ISocialPlatform):
         elif message.xma_share is not None:
             text += str(message.xma_share.video_url)
         else: return
-        return Message(message.id, message.user_id, text, message.timestamp.timestamp())
+        return ReceivedMessage(message.id, thread_id, text, message.timestamp.timestamp())
 
     @staticmethod
     def _secondsToWaitForTypingText(text: str) -> int:

@@ -1,18 +1,18 @@
-from typing import Optional, List, Dict
-from random import gauss
-from datetime import datetime
+from typing import Optional, List, Dict, Tuple
 from .interface import IPortal, ISocialPlatform, IDatabase
-from ._models import MessageBatch
-from ._entities import User, Message, ProcessedMessage
+from ._models import ReceivedMessageBatch
+from ._entities import User, ReceivedMessage, ModifiedMessage
 from ._logger import logger
 
+
+# assumes all messages fetched from database are ordered by timestamp
 
 class AbstractPortal(IPortal):
     database: IDatabase
     social_platform: ISocialPlatform
 
     def runStep(self):
-        self._forwardUnsentMessages()
+        self._forceForwardMessages()
         batches = self.social_platform.getNewMessages()
         self._receiveMessageBatches(batches)
 
@@ -21,85 +21,99 @@ class AbstractPortal(IPortal):
         batches = self.social_platform.getOldMessages()
         self._receiveMessageBatches(batches)
 
-    def _receiveMessageBatches(self, batches: List[MessageBatch]):
+    def _receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
         for batch in batches:
             logger.info(f"Portal: handling {len(batch.messages)} length message batch from user {batch.from_user.id}")
             self._receiveMessageBatch(batch)
             logger.info(f"Portal: handled message batch from user {batch.from_user.id}")
 
-    # think before changing the order of the included methods
-    def _receiveMessageBatch(self, batch: MessageBatch):
+    # think before changing the order of the method's function calls
+    def _receiveMessageBatch(self, batch: ReceivedMessageBatch):
         if len(batch.messages) == 0: return
-        user = self._fetchOrCreateUser(batch.from_user) # redefine user with the actual db entity!
-        self._storeNewMessages(batch) # store new messages, so they are available in the next steps
-        if self._matchAvailable(user): # check if user can be (or already is) matched
-            self._forwardUserMessages(user) # forward unsent messages to user's match
+        # redefine user with the actual db entity!
+        user = self._fetchOrCreateUser(batch.from_user)
+        # store new messages, so they are available in the next steps
+        self._storeReceivedMessages(batch.messages)
+        match, exists = self._getMatchIfNewWithExistenceStatus(user)
+        # if user cannot be matched, end here
+        if not exists: return
+        self._pushForwardMessages(user)
+        # if match's messages were processed before this user was available
+        # (or matching criteria was not symmetric) then force-forward match's messages
+        if match is not None:
+            logger.info(f"Portal: forward messages from new match {match.id} to user {user.id}")
+            self._pushForwardMessages(match)
 
-    def _forwardUnsentMessages(self):
-        for user in self.database.fetchMatchedUsers():
-            self._forwardUserMessages(user)
+    def _forceForwardMessages(self):
+        for user in self.database.matchedUsers():
+            self._pushForwardMessages(user)
 
-    def _forwardUserMessages(self, user: User):
+    def _pushForwardMessages(self, user: User):
         assert user.match_id is not None
         assert (match := self.database.fetchUser(user.match_id)) is not None
-        unsent_messages = self.database.unsentMessagesFrom(user)
-        unsent_messages.sort(key=lambda msg: msg.timestamp)
-        if len(unsent_messages) == 0 or self._messagesReadyToBeSent(unsent_messages, user, match):
-            return
-        logger.info(f"Portal: processing {len(unsent_messages)} messages to be sent from user {user.id} to user {match.id}")
-        processed_messages = self._processMessageBatch(MessageBatch(user, unsent_messages), match)
-        logger.info(f"Portal: sending {len(processed_messages)} processed messages from user {user.id} to user {match.id}")
-        # forward processed messages to the match
-        last_unsent_index = 0
-        for processed_message in processed_messages:
-            self.social_platform.sendMessage(match, processed_message.content)
-            # mark every message before processed_message.original_message_id as sent
-            for i in range(last_unsent_index, len(unsent_messages)):
-                original_message = unsent_messages[i]
-                self.database.markMessageSent(original_message, match)
-                last_unsent_index += 1
-                if original_message.id == processed_message.original_message_id:
-                    break
-            # add processed message to the database
-            self.database.addProcessedMessage(processed_message)
-            logger.info(f"Portal: processed message {processed_message.id} sent to user {match.id}")
-        # mark the rest of the messages as sent
-        for i in range(last_unsent_index, len(unsent_messages)):
-            self.database.markMessageSent(unsent_messages[i], match)
+        self._processReceivedMessages(user, match)
+        self._forwardModifiedMessages(match)
+
+    def _processReceivedMessages(self, user: User, match: User):
+        unprocessed_messages = self.database.unprocessedMessagesFrom(user)
+        unprocessed_messages.sort(key=lambda msg: msg.timestamp)
+        if len(unprocessed_messages) == 0: return
+        if not self._messagesReadyToBeProcessed(unprocessed_messages, user, match): return
+        logger.info(f"Portal: modifying {len(unprocessed_messages)} messages from user {user.id}")
+        modified_messages = self._modifyUnsentMessages(unprocessed_messages, user, match)
+        logger.info(f"Portal: modified {len(modified_messages)} messages from user {user.id}")
+        # store modified messages in database and mark unprocessed messages as processed
+        logger.info(f"Portal: updating the database after processing received messages from user {user.id}")
+        for unprocessed_message in unprocessed_messages:
+            self.database.markMessageProcessed(unprocessed_message)
+        self.database.addEntities(modified_messages)
+
+    def _forwardModifiedMessages(self, match: User):
+        modified_messages = self.database.unsentMessagesTo(match)
+        for message in modified_messages:
+            self.social_platform.sendMessage(match, message.content)
+            logger.info(f"Portal: forwarded message {message.id} to user {match.id}")
+            self.database.markMessageSent(message)
 
     def _fetchOrCreateUser(self, _user: User) -> User:
         user = self.database.fetchUser(_user.id)
         if user is None:
-            self.database.addUsers([_user])
+            self.database.addEntities([_user])
             assert (user := self.database.fetchUser(_user.id)) is not None
             logger.info(f"Portal: initialized new user {user.id}")
         return user
 
-    def _storeNewMessages(self, batch: MessageBatch):
+    def _storeReceivedMessages(self, messages: List[ReceivedMessage]):
         # messages sent before the latest message that is stored in the database
         # will not be stored (to not to process messages before database genesis)
-        message_stack = sorted(batch.messages, key=lambda msg: -msg.timestamp)
+        message_stack = sorted(messages, key=lambda msg: -msg.timestamp)
         i = 0
         for message in message_stack:
-            if self.database.fetchMessage(message.id) is not None: break
+            if self.database.fetchReceivedMessage(message.id) is not None: break
             i += 1
-        self.database.addMessages(message_stack[:i])
+        self.database.addEntities(message_stack[:i])
 
-    def _matchAvailable(self, user: User) -> bool:
+    # tries to fetch the match or create it and returns it if it's newly created,
+    # along with a flag telling if the match exists
+    def _getMatchIfNewWithExistenceStatus(self, user: User) -> Tuple[Optional[User], bool]:
         if user.match_id is None:
             match = self._bestMatchOf(user)
             if match is not None:
                 self.database.matchUsers(user, match) # user entities are updated
                 logger.info(f"Portal: assigned match {match.id} to user {user.id}")
-                # if match's messages were processed before this user was available
-                # (or matching criteria was not symmetric) then force-forward match's messages
-                logger.info(f"Portal: forward messages from new match {match.id} to user {user.id}")
-                self._forwardUserMessages(match)
+                return match, True
             else: # no match possible => end here
                 logger.info(f"Portal: could not assign a match to user {user.id}")
-                return False
-        return True
+                return None, False
+        return None, True
 
+def exceptWrapper(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            logger.exception(f"Portal: exception occurred while calling {func.__name__}: {e}")
+    return wrapper
 
 class Portal(AbstractPortal):
     _delay_messages_from: Dict[str, int] # time to delay forwarding of messages from user to match
@@ -112,47 +126,28 @@ class Portal(AbstractPortal):
         self.social_platform = social_platform
         self._delay_messages_from = dict()
 
+    @exceptWrapper
     def jumpstart(self):
-        try:
-            super().jumpstart()
-        except Exception as e:
-            logger.exception(f"Portal: exception occurred while jumpstarting: {e}")
+        super().jumpstart()
 
+    @exceptWrapper
     def runStep(self):
-        try:
-            super().runStep()
-        except Exception as e:
-            logger.exception(f"Portal: exception occurred while running step: {e}")
+        super().runStep()
 
-    def _receiveMessageBatches(self, batches: List[MessageBatch]):
-        try:
-            super()._receiveMessageBatches(batches)
-        except Exception as e:
-            logger.exception(f"ExceptionHandlerPortal: exception occurred while handling message batches: {e}")
+    @exceptWrapper
+    def _receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
+        super()._receiveMessageBatches(batches)
 
-    def _receiveMessageBatch(self, batch: MessageBatch):
-        try:
-            super()._receiveMessageBatch(batch)
-        except Exception as e:
-            logger.exception(f"ExceptionHandlerPortal: exception occurred while handling message batch: {e}")
+    @exceptWrapper
+    def _receiveMessageBatch(self, batch: ReceivedMessageBatch):
+        super()._receiveMessageBatch(batch)
 
     def _bestMatchOf(self, user: User) -> Optional[User]:
-        for test_user in self.database.fetchMatchCandidates(user.id):
+        for test_user in self.database.matchCandidatesOf(user.id):
             return test_user
 
-    def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]:
-        return [ProcessedMessage(message.id, message.content) for message in batch.messages]
+    def _messagesReadyToBeProcessed(self, messages: List[ReceivedMessage], from_user: User, to_user: User) -> bool:
+        return True
 
-    # fix this to reply after N(median hours,delta) distributed time units
-    def _messagesReadyToBeSent(self, messages: List[Message], from_user: User, to_user: User) -> bool:
-        if len(messages) == 0: return False
-        delay = self._delay_messages_from.get(from_user.id)
-        if delay is None:
-            delay = max(abs(int(gauss(3600, 1500))), 600) # around an hour, min 10 minutes
-            self._delay_messages_from[from_user.id] = delay
-        latest_timestamp = max(map(lambda msg: msg.timestamp, messages))
-        if latest_timestamp < datetime.now().timestamp() + delay:
-            return False
-        else:
-            del self._delay_messages_from[from_user.id]
-            return True
+    def _modifyUnsentMessages(self, messages: List[ReceivedMessage], from_user: User, to_user: User) -> List[ModifiedMessage]:
+        return [ModifiedMessage(message.id, to_user.thread_id, message.content, message.timestamp) for message in messages]

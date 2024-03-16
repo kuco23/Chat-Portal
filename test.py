@@ -1,2 +1,3 @@
-import chat_portal.test.database_test
-import chat_portal.test.portal_test
+import chat_portal.test._database_basic_test
+import chat_portal.test._database_conversation_test
+import chat_portal.test._portal_basic_test

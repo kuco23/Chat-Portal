@@ -1,7 +1,7 @@
 from typing import Optional, List
 from abc import ABC, abstractmethod
-from ._models import MessageBatch
-from ._entities import User, Message, ProcessedMessage
+from ._models import ReceivedMessageBatch
+from ._entities import User, Message, ReceivedMessage, ModifiedMessage
 
 
 class ISocialPlatform(ABC):
@@ -10,10 +10,10 @@ class ISocialPlatform(ABC):
     def sendMessage(self, to_user: User, message: str) -> bool: pass
 
     @abstractmethod
-    def getNewMessages(self) -> List[MessageBatch]: pass
+    def getNewMessages(self) -> List[ReceivedMessageBatch]: pass
 
     @abstractmethod
-    def getOldMessages(self) -> List[MessageBatch]: pass
+    def getOldMessages(self) -> List[ReceivedMessageBatch]: pass
 
     # gets user with full info (like username, full_name, gender)
     @abstractmethod
@@ -22,17 +22,32 @@ class ISocialPlatform(ABC):
 class IDatabase(ABC):
 
     @abstractmethod
-    def addUsers(self, users: List[User]): pass
-
-    @abstractmethod
-    def addMessages(self, messages: List[Message]): pass
+    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage]): pass
 
     # fetches a user from the database
     @abstractmethod
     def fetchUser(self, user_id: str) -> Optional[User]: pass
 
     @abstractmethod
-    def fetchMessage(self, message_id: str) -> Optional[Message]: pass
+    def fetchReceivedMessage(self, message_id: str) -> Optional[ReceivedMessage]: pass
+
+    @abstractmethod
+    def fetchModifiedMessage(self, message_id: str) -> Optional[ModifiedMessage]: pass
+
+    # returns all unprocessed received messages from the given user
+    @abstractmethod
+    def unprocessedMessagesFrom(self, user: User) -> List[ReceivedMessage]: pass
+
+    # returns all messages that were not yet sent to user
+    @abstractmethod
+    def unsentMessagesTo(self, to: User) -> List[ModifiedMessage]: pass
+
+    # marks message processed
+    @abstractmethod
+    def markMessageProcessed(self, message: ReceivedMessage): pass
+
+    @abstractmethod
+    def markMessageSent(self, message: ModifiedMessage): pass
 
     # matches a user with another user
     @abstractmethod
@@ -40,23 +55,21 @@ class IDatabase(ABC):
 
     # fetches all users that are candidates for matching with the given user
     @abstractmethod
-    def fetchMatchCandidates(self, user_id: str) -> List[User]: pass
+    def matchCandidatesOf(self, user_id: str) -> List[User]: pass
 
     # fetches all users that have a match from the database
     @abstractmethod
-    def fetchMatchedUsers(self) -> List[User]: pass
+    def matchedUsers(self) -> List[User]: pass
 
-    # marks message sent by setting the to_user_id
+    # fetches user from thread id
     @abstractmethod
-    def markMessageSent(self, message: Message, to_user: User): pass
+    def userFromThread(self, thread_id: str) -> Optional[User]: pass
 
-    # returns all unsent messages from the given user
+    # returns the history of the unseen conversation + some additional context messages
+    # needed for additional context when modifying received messages to ai
     @abstractmethod
-    def unsentMessagesFrom(self, user: User) -> List[Message]: pass
+    def conversationHistory(self, thread_id: str, before_timestamp: float, n_context_msg: int) -> List[Message]: pass
 
-    # adds a message processed by the given processor
-    @abstractmethod
-    def addProcessedMessage(self, message: ProcessedMessage): pass
 
 class IPortal(ABC):
 
@@ -81,11 +94,9 @@ class IPortal(ABC):
     # e.g. the message is "how does a girl like you find herself on this app?"
     # the message forwarded to the match should be "how does a guy like you find himself on this app?"
     @abstractmethod
-    def _processMessageBatch(self, batch: MessageBatch, to_user: User) -> List[ProcessedMessage]: pass
+    def _modifyUnsentMessages(self, messages: List[ReceivedMessage], from_user: User, to_user) -> List[ModifiedMessage]: pass
 
-    # decides whether the messages are ready to be sent
-    # this is necessary if we are simulating rare replies where we don't want to forward messages immediately
-    # this can be viewed as adapting to limitation of not being able to stream messages from the social platform
-    # or as simulating the fact that people don't reply immediately and also batch messages together when they do
+    # decides whether the messages are ready to be processed / modified
+    # this can be useful when waiting for additional context when receiving messages
     @abstractmethod
-    def _messagesReadyToBeSent(self, messages: List[Message], from_user: User, to_user: User) -> bool: pass
+    def _messagesReadyToBeProcessed(self, messages: List[ReceivedMessage], from_user: User, to_user: User) -> bool: pass

@@ -1,10 +1,10 @@
-from .._entities import User, Message
+from .._entities import User, ReceivedMessage
 from .. import Database
 
 database = Database("sqlite+pysqlite:///:memory:")
 
 for user_id in ["user1", "user2", "user3"]:
-    database.addUsers([User(user_id, user_id)])
+    database.addEntities([User(user_id, user_id)])
     user = database.fetchUser(user_id)
     assert user is not None
     assert user.id == user_id
@@ -12,12 +12,11 @@ for user_id in ["user1", "user2", "user3"]:
     assert user.match_id is None
 
 for i, user_id in enumerate(["user1", "user2", "user3"]):
-    message = Message(str(i), user_id, "hello", i)
-    database.addMessages([message])
-    message = database.fetchMessage(str(i))
+    message = ReceivedMessage(str(i), user_id + "_thread", "hello", i)
+    database.addEntities([message])
+    message = database.fetchReceivedMessage(str(i))
     assert message is not None
     assert message.id == str(i)
-    assert message.from_user_id == user_id
     assert message.content == "hello"
     assert message.timestamp == i
 
@@ -35,4 +34,4 @@ assert user is not None
 assert user.id == "user3"
 assert user.match_id is None
 
-print("All tests for _database.py passed")
+print("All tests for _database_basic_test.py passed")
