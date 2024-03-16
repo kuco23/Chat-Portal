@@ -1,27 +1,22 @@
 from typing import Optional, List
 from openai import OpenAI
-from ..interface import ISocialPlatform, IDatabase
-from .._models import ReceivedMessage, ModifiedMessage
-from .._entities import User, Message
+from .._entities import User, ReceivedMessage, ModifiedMessage
 from .._portal import Portal
+from ..interface import ISocialPlatform, IDatabase
 
-MAX_CONTEXT_MESSAGE_NUMBER = 10
-
+MAX_CONTEXT_MESSAGE_NUMBER = 5
 
 SYS_PROMPT_TEMPLATE = """\
 Imagine you are Laila, a 13-year-old american girl in the middle of an Instagram conversation. \
 You've received a series of new messages, all from one person named "{from_name}". \
-Your task is to modify these messages so that it appears as though they are being sent by you, Laila, to a different person named "{to_name}".
+Modify these messages so that it appears as though they are being sent by you, Laila, to a different person named "{to_name}".
 
 Key instructions:
 1. Maintain the original meaning of each message.
-2. Only alter parts of the messages that indicate the recipient is Laila or the sender is "{from_name}". \
-    Keep the rest of the message content unchanged. \
-    Avoid adding the recipient's name unnecessarily.
-3. If the gender of "{from_name}" or "{to_name}" is not clear, assume both are male.
-4. Speak English only.
-5. Respect the formatting: messages are separated by two blank lines. Each original message corresponds to one modified message. \
-    Messages before the "---" line are the context of the conversation, skip those in your output.
+2. Only modify parts showing recipient as Laila or sender as "{from_name}". Keep other content as is. Avoid adding the recipient's name unnecessarily.
+3. For unclear genders, avoid gender-specific language or assume both are male.
+4. Use only English.
+5. Respect format: separate messages with two blank lines, and only modify messages after the "---" line.
 """
 
 class GptPortal(Portal):
@@ -52,7 +47,10 @@ class GptPortal(Portal):
         thread_id = received_messages[0].thread_id
         first_timestamp = min(map(lambda msg: msg.timestamp, received_messages))
         conversation = self.database.conversationHistory(thread_id, first_timestamp, MAX_CONTEXT_MESSAGE_NUMBER)
-        return "\n\n".join([msg.content for msg in conversation]) + "\n---\n" + "\n\n".join([msg.content for msg in received_messages])
+        context = filter(lambda msg: msg.timestamp < first_timestamp, conversation)
+        s = "\n\n".join([msg.content for msg in context]) + "\n---\n" + "\n\n".join([msg.content for msg in received_messages])
+        print(s)
+        return s
 
     def _getGptPromptResponse(self, prompt_sys: str, prompt_usr: str) -> Optional[str]:
         completion = self.openai_client.chat.completions.create(
@@ -68,11 +66,11 @@ class GptPortal(Portal):
         if len(gpt_messages) != len(received_messages):
             last_message = max(received_messages, key=lambda msg: msg.timestamp)
             return [
-                ModifiedMessage(last_message.id, last_message.thread_id, processed_message, last_message.timestamp + i)
+                ModifiedMessage(last_message.id, to_user.thread_id, processed_message, last_message.timestamp + i)
                 for i, processed_message in enumerate(gpt_messages)
             ]
         return [
-            ModifiedMessage(received_message.id, received_message.thread_id, processed_message, received_message.timestamp)
+            ModifiedMessage(received_message.id, to_user.thread_id, processed_message, received_message.timestamp)
             for received_message, processed_message in zip(received_messages, gpt_messages)
         ]
 

@@ -1,6 +1,6 @@
 from typing import List
 from dataclasses import dataclass
-from ._entities import User, ReceivedMessage, ModifiedMessage
+from ._entities import User, ReceivedMessage
 
 @dataclass
 class ReceivedMessageBatch:

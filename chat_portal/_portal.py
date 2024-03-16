@@ -33,26 +33,27 @@ class AbstractPortal(IPortal):
         # redefine user with the actual db entity!
         user = self._fetchOrCreateUser(batch.from_user)
         # store new messages, so they are available in the next steps
+        logger.info(f"Portal: storing {len(batch.messages)} received messages from user {user.id}")
         self._storeReceivedMessages(batch.messages)
         match, exists = self._getMatchIfNewWithExistenceStatus(user)
         # if user cannot be matched, end here
         if not exists: return
-        self._pushForwardMessages(user)
+        self._pushForwardMessagesFrom(user)
         # if match's messages were processed before this user was available
         # (or matching criteria was not symmetric) then force-forward match's messages
         if match is not None:
             logger.info(f"Portal: forward messages from new match {match.id} to user {user.id}")
-            self._pushForwardMessages(match)
+            self._pushForwardMessagesFrom(match)
 
     def _forceForwardMessages(self):
         for user in self.database.matchedUsers():
-            self._pushForwardMessages(user)
+            self._pushForwardMessagesFrom(user)
 
-    def _pushForwardMessages(self, user: User):
+    def _pushForwardMessagesFrom(self, user: User):
         assert user.match_id is not None
         assert (match := self.database.fetchUser(user.match_id)) is not None
         self._processReceivedMessages(user, match)
-        self._forwardModifiedMessages(match)
+        self._forwardModifiedMessagesTo(match)
 
     def _processReceivedMessages(self, user: User, match: User):
         unprocessed_messages = self.database.unprocessedMessagesFrom(user)
@@ -63,16 +64,16 @@ class AbstractPortal(IPortal):
         modified_messages = self._modifyUnsentMessages(unprocessed_messages, user, match)
         logger.info(f"Portal: modified {len(modified_messages)} messages from user {user.id}")
         # store modified messages in database and mark unprocessed messages as processed
-        logger.info(f"Portal: updating the database after processing received messages from user {user.id}")
+        logger.info(f"Portal: storing modified messages from user {user.id}")
         for unprocessed_message in unprocessed_messages:
             self.database.markMessageProcessed(unprocessed_message)
         self.database.addEntities(modified_messages)
 
-    def _forwardModifiedMessages(self, match: User):
-        modified_messages = self.database.unsentMessagesTo(match)
+    def _forwardModifiedMessagesTo(self, to_user: User):
+        modified_messages = self.database.unsentMessagesTo(to_user)
         for message in modified_messages:
-            self.social_platform.sendMessage(match, message.content)
-            logger.info(f"Portal: forwarded message {message.id} to user {match.id}")
+            self.social_platform.sendMessage(to_user, message.content)
+            logger.info(f"Portal: forwarded message {message.id} to user {to_user.id}")
             self.database.markMessageSent(message)
 
     def _fetchOrCreateUser(self, _user: User) -> User:

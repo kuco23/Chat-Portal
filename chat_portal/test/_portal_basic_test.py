@@ -2,7 +2,6 @@ from typing import List
 from ..interface import ISocialPlatform
 from .._entities import User, ReceivedMessage
 from .._models import ReceivedMessageBatch
-from .._entities import User, Message
 from .. import Portal, Database
 
 

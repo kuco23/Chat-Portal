@@ -2,9 +2,8 @@ from typing import List
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
-from chat_portal._entities import ModifiedMessage, ReceivedMessage
+from ._entities import Base, User, Message, ModifiedMessage, ReceivedMessage
 from .interface import IDatabase
-from ._entities import Base, User, Message
 
 class Database(IDatabase):
     engine: Engine
