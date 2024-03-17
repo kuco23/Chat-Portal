@@ -41,6 +41,8 @@ user2 = User("2", "2", full_name="Hana")
 user = user1
 while True:
     x = input(user.full_name + " > ")
+    if x == "":
+        portal.runStep()
+        user = user2 if user.id == user1.id else user1
+        continue
     platform.addMessage(user, x)
-    portal.runStep()
-    user = user2 if user.id == user1.id else user1

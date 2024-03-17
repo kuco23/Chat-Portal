@@ -93,5 +93,7 @@ class Database(IDatabase):
             context = session.query(Message).filter(
                 Message.thread_id == thread_id,
                 Message.timestamp < before_timestamp
-            ).order_by(Message.timestamp.desc()).limit(n_context_msg).all()
+            ).order_by(
+                Message.timestamp.desc()
+            ).limit(n_context_msg).all()
             return context[::-1] + messages

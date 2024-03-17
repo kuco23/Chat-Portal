@@ -1,12 +1,8 @@
-from enum import IntEnum
 from random import randint
 from hashlib import sha256
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import mapped_column, relationship, Mapped, DeclarativeBase
 
-class Gender(IntEnum):
-    FEMALE = 0
-    MALE = 1
 
 class Base(DeclarativeBase):
     pass

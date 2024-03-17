@@ -6,36 +6,27 @@ from ..interface import ISocialPlatform, IDatabase
 
 MAX_CONTEXT_MESSAGE_NUMBER = 5
 
-SYS_PROMPT_TEMPLATE = """\
-Imagine you are Laila, a 13-year-old american girl in the middle of an Instagram conversation. \
-You've received a series of new messages, all from one person named "{from_name}". \
-Modify these messages so that it appears as though they are being sent by you, Laila, to a different person named "{to_name}".
-
-Key instructions:
-1. Maintain the original meaning of each message.
-2. Only modify parts showing recipient as Laila or sender as "{from_name}". Keep other content as is. Avoid adding the recipient's name unnecessarily.
-3. For unclear genders, avoid gender-specific language or assume both are male.
-4. Use only English.
-5. Respect format: separate messages with two blank lines, and only modify messages after the "---" line.
-"""
 
 class GptPortal(Portal):
     openai_client: OpenAI
     openai_model_name: str
+    system_prompt_template: str
 
     def __init__(
         self: "GptPortal",
         database: IDatabase,
         social_platform: ISocialPlatform,
-        openai_model_name: str
+        openai_model_name: str,
+        system_prompt_template: str
     ):
         super().__init__(database, social_platform)
         self.openai_client = OpenAI() # takes OPENAI_API_KEY from os.environ
         self.openai_model_name = openai_model_name
+        self.system_prompt_template = system_prompt_template
 
     def _modifyUnsentMessages(self, received_messages: List[ReceivedMessage], from_user: User, to_user: User):
         if len(received_messages) == 0: return []
-        sys_prompt = GptPortal._getSysPrompt(from_user, to_user)
+        sys_prompt = self._getSysPrompt(from_user, to_user)
         user_prompt = self._messagesToGptPrompt(received_messages)
         gpt_response = self._getGptPromptResponse(sys_prompt, user_prompt)
         if gpt_response is None:
@@ -72,9 +63,8 @@ class GptPortal(Portal):
             for received_message, processed_message in zip(received_messages, gpt_messages)
         ]
 
-    @staticmethod
-    def _getSysPrompt(from_user: User, to_user: User) -> str:
-        return SYS_PROMPT_TEMPLATE.format(
+    def _getSysPrompt(self, from_user: User, to_user: User) -> str:
+        return self.system_prompt_template.format(
             from_name=GptPortal._determineName(from_user),
             to_name=GptPortal._determineName(to_user)
         )
