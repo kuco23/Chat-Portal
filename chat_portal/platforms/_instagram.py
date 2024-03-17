@@ -27,7 +27,7 @@ class Instagram(ISocialPlatform):
         return True # fix to return whether message was successfully sent
 
     def getNewMessages(self) -> List[ReceivedMessageBatch]:
-        new_approved = self._getApprovedMessages(True)
+        new_approved = self._getApprovedMessages(False)
         new_pending = self._getPendingMessages()
         return new_approved + new_pending
 

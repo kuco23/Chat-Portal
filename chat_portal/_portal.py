@@ -33,8 +33,9 @@ class AbstractPortal(IPortal):
         # redefine user with the actual db entity!
         user = self._fetchOrCreateUser(batch.from_user)
         # store new messages, so they are available in the next steps
-        logger.info(f"Portal: storing {len(batch.messages)} received messages from user {user.id}")
-        self._storeReceivedMessages(batch.messages)
+        n_new_messages = self._storeNewReceivedMessages(batch.messages)
+        if n_new_messages == 0: return
+        logger.info(f"Portal: stored {n_new_messages} new received messages from user {user.id}")
         match, exists = self._getMatchIfNewWithExistenceStatus(user)
         # if user cannot be matched, end here
         if not exists: return
@@ -84,7 +85,7 @@ class AbstractPortal(IPortal):
             logger.info(f"Portal: initialized new user {user.id}")
         return user
 
-    def _storeReceivedMessages(self, messages: List[ReceivedMessage]):
+    def _storeNewReceivedMessages(self, messages: List[ReceivedMessage]):
         # messages sent before the latest message that is stored in the database
         # will not be stored (to not to process messages before database genesis)
         message_stack = sorted(messages, key=lambda msg: -msg.timestamp)
@@ -92,7 +93,9 @@ class AbstractPortal(IPortal):
         for message in message_stack:
             if self.database.fetchReceivedMessage(message.id) is not None: break
             i += 1
-        self.database.addEntities(message_stack[:i])
+        if i > 0:
+            self.database.addEntities(message_stack[:i])
+        return i
 
     # tries to fetch the match or create it and returns it if it's newly created,
     # along with a flag telling if the match exists

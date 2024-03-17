@@ -48,9 +48,7 @@ class GptPortal(Portal):
         first_timestamp = min(map(lambda msg: msg.timestamp, received_messages))
         conversation = self.database.conversationHistory(thread_id, first_timestamp, MAX_CONTEXT_MESSAGE_NUMBER)
         context = filter(lambda msg: msg.timestamp < first_timestamp, conversation)
-        s = "\n\n".join([msg.content for msg in context]) + "\n---\n" + "\n\n".join([msg.content for msg in received_messages])
-        print(s)
-        return s
+        return "\n\n".join([msg.content for msg in context]) + "\n---\n" + "\n\n".join([msg.content for msg in received_messages])
 
     def _getGptPromptResponse(self, prompt_sys: str, prompt_usr: str) -> Optional[str]:
         completion = self.openai_client.chat.completions.create(
