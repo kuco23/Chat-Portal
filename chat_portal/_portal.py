@@ -120,7 +120,6 @@ def exceptWrapper(func):
     return wrapper
 
 class Portal(AbstractPortal):
-    _delay_messages_from: Dict[str, int] # time to delay forwarding of messages from user to match
 
     def __init__(self,
         database: IDatabase,
@@ -128,7 +127,6 @@ class Portal(AbstractPortal):
     ):
         self.database = database
         self.social_platform = social_platform
-        self._delay_messages_from = dict()
 
     @exceptWrapper
     def jumpstart(self):
