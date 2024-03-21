@@ -23,9 +23,7 @@ class AbstractPortal(IPortal):
 
     def _receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
         for batch in batches:
-            logger.info(f"Portal: handling {len(batch.messages)} length message batch from user {batch.from_user.id}")
             self._receiveMessageBatch(batch)
-            logger.info(f"Portal: handled message batch from user {batch.from_user.id}")
 
     # think before changing the order of the method's function calls
     def _receiveMessageBatch(self, batch: ReceivedMessageBatch):
