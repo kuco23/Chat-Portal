@@ -1,4 +1,5 @@
 # Chat Portal
+[![PyPI version](https://badge.fury.io/py/chat_portal.svg)](https://pypi.org/project/chat_portal)
 
 This code automates a social media profile and makes it functions as a message exchange portal. It monitors incoming messages, pairs users based on their message content, and then relays each new message between matched users. The current implementation uses Instagram as a social platform and chatGPT to modify relayed messages in a way that makes it seem like they are comming from the automated profile.
 
