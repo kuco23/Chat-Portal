@@ -2,7 +2,7 @@ from typing import List
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 from sqlalchemy_utils import database_exists, create_database
-from ._entities import Base, User, Message, ModifiedMessage, ReceivedMessage
+from ._entities import Base, User, Thread, Message, ModifiedMessage, ReceivedMessage
 from .interface import IDatabase
 
 class Database(IDatabase):
@@ -14,7 +14,7 @@ class Database(IDatabase):
             create_database(db_url)
         Base.metadata.create_all(self.engine)
 
-    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage]):
+    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage] | List[Thread]):
         with Session(self.engine, expire_on_commit=False) as session:
             session.bulk_save_objects(entities)
             session.commit()
@@ -25,6 +25,10 @@ class Database(IDatabase):
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(User).filter(User.id == user_id).one_or_none()
 
+    def fetchThread(self, thread_id: str):
+        with Session(self.engine, expire_on_commit=False) as session:
+            return session.query(Thread).filter(Thread.id == thread_id).one_or_none()
+
     def fetchReceivedMessage(self, message_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(ReceivedMessage).filter(ReceivedMessage.id == message_id).one_or_none()
@@ -33,27 +37,27 @@ class Database(IDatabase):
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(ModifiedMessage).filter(ModifiedMessage.id == message_id).one_or_none()
 
-    def unprocessedMessagesFrom(self, user: User):
+    def unprocessedMessagesOnThread(self, thread: Thread):
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(ReceivedMessage).filter(
-                ReceivedMessage.thread_id == user.thread_id,
+                ReceivedMessage.thread_id == thread.id,
                 ReceivedMessage.processed == False
             ).order_by(ReceivedMessage.timestamp.asc()).all()
 
-    def unsentMessagesTo(self, user: User):
+    def unsentMessagesOnThread(self, thread: Thread):
         with Session(self.engine, expire_on_commit=False) as session:
             return session.query(ModifiedMessage).filter(
-                ModifiedMessage.thread_id == user.thread_id,
+                ModifiedMessage.thread_id == thread.id,
                 ModifiedMessage.sent == False
             ).order_by(ModifiedMessage.timestamp.asc()).all()
 
-    def matchedUsers(self) -> List[User]:
+    def pairedThreads(self) -> List[Thread]:
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.match_id.is_not(None)).all()
+            return session.query(Thread).filter(Thread.pair_id.is_not(None)).all()
 
-    def matchCandidatesOf(self, user_id: str) -> List[User]:
+    def pairCandidatesOf(self, user_id: str) -> List[Thread]:
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.id != user_id, User.match_id.is_(None)).all()
+            return session.query(Thread).filter(Thread.id != user_id, Thread.pair_id.is_(None)).all()
 
     ################################### updating entities ######################################################
 
@@ -69,12 +73,12 @@ class Database(IDatabase):
             session.add(message)
             session.commit()
 
-    def matchUsers(self, user1: User, user2: User):
+    def pairThreads(self, thread_1: Thread, thread_2: Thread):
         with Session(self.engine, expire_on_commit=False) as session:
-            user1.match_id = user2.id
-            user2.match_id = user1.id
-            session.add(user1)
-            session.add(user2)
+            thread_1.pair_id = thread_2.id
+            thread_2.pair_id = thread_1.id
+            session.add(thread_1)
+            session.add(thread_2)
             session.commit()
 
 
@@ -82,7 +86,9 @@ class Database(IDatabase):
 
     def userFromThread(self, thread_id: str):
         with Session(self.engine, expire_on_commit=False) as session:
-            return session.query(User).filter(User.thread_id == thread_id).one_or_none()
+            thread = session.query(Thread).filter(Thread.id == thread_id).one_or_none()
+            assert thread is not None, "Thread not found by passed id"
+            return session.query(User).filter(User.id == thread.user_id).one_or_none()
 
     def conversationHistory(self, thread_id: str, before_timestamp: float, n_context_msg: int) -> List[Message]:
         with Session(self.engine, expire_on_commit=False) as session:

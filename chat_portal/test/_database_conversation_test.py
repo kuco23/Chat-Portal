@@ -1,14 +1,14 @@
-from .._entities import User, ReceivedMessage, ModifiedMessage
+from .._entities import User, Thread, ReceivedMessage, ModifiedMessage
 from .. import Database
 
 database = Database("sqlite+pysqlite:///:memory:")
 
-database.addEntities([User("0", "user0_thread"), User("1", "user1_thread")])
-user0 = database.fetchUser("0")
-user1 = database.fetchUser("1")
-assert user0 is not None
-assert user1 is not None
-database.matchUsers(user0, user1)
+database.addEntities([User("user0"), User("user1")])
+database.addEntities([Thread("user0_thread", "user0"), Thread("user1_thread", "user1")])
+thread0 = database.fetchThread("user0_thread")
+thread1 = database.fetchThread("user1_thread")
+assert thread0 is not None
+assert thread1 is not None
 
 database.addEntities([
     ReceivedMessage("0", "user0_thread", "(user0) hi", 1),

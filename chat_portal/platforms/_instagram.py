@@ -4,8 +4,8 @@ from time import sleep
 from instagrapi import Client
 from instagrapi.types import DirectThread, DirectMessage
 from .._models import ReceivedMessageBatch
-from .._entities import ReceivedMessage
-from ..interface import ISocialPlatform, User
+from .._entities import User, Thread, ReceivedMessage
+from ..interface import ISocialPlatform
 
 
 THREAD_FETCH_LIMIT = 20
@@ -20,10 +20,10 @@ class Instagram(ISocialPlatform):
         self.client.login(username, password)
         self.user_id = self.client.user_id_from_username(username)
 
-    def sendMessage(self, to_user: User, message: str) -> bool:
-        self.client.direct_send_seen(int(to_user.thread_id))
+    def sendMessage(self, thread: Thread, message: str) -> bool:
+        self.client.direct_send_seen(int(thread.id))
         sleep(Instagram._secondsToWaitForTypingText(message))
-        self.client.direct_send(message, [int(to_user.id)])
+        self.client.direct_send(message, [int(thread.user_id)])
         return True # fix to return whether message was successfully sent
 
     def getNewMessages(self) -> List[ReceivedMessageBatch]:
@@ -36,12 +36,7 @@ class Instagram(ISocialPlatform):
 
     def getUser(self, user_id: str) -> Optional[User]:
         user_info = self.client.user_info(user_id)
-        resp = self.client.direct_thread_by_participants([int(user_id)])
-        threads = resp.get('items')
-        if threads is not None and len(threads) > 0:
-            thread_id = threads[0].id
-        if thread_id is None: return
-        return User(user_id, thread_id, username=user_info.username, full_name=user_info.full_name)
+        return User(user_id, username=user_info.username, full_name=user_info.full_name)
 
     def _getApprovedMessages(self, old: bool) -> List[ReceivedMessageBatch]:
         batches: List[ReceivedMessageBatch] = []
@@ -77,11 +72,11 @@ class Instagram(ISocialPlatform):
         if user_id is None: return
         # user_info does not have an id for some reason, so we gotta get hacky
         # ideally we should check whether thread.users[0].username exists
-        # if it does, we should check it matches self.user_id,
+        # if it does, we should check it paires self.user_id,
         # else we should fetch the user's info with self.getUser(user_id)
         user_info = thread.users[0]
-        user = User(user_id, thread.id, username=user_info.username, full_name=user_info.full_name)
-        return ReceivedMessageBatch(user, messages)
+        user = User(user_id, username=user_info.username, full_name=user_info.full_name)
+        return ReceivedMessageBatch(messages, Thread(thread.id, user_id), user)
 
     def _directMessageToReceivedMessage(self, message: DirectMessage, thread_id: str) -> Optional[ReceivedMessage]:
         if message.user_id is None: return

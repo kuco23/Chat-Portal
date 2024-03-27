@@ -1,13 +1,13 @@
 from typing import Optional, List
 from abc import ABC, abstractmethod
 from ._models import ReceivedMessageBatch
-from ._entities import User, Message, ReceivedMessage, ModifiedMessage
+from ._entities import User, Thread, Message, ReceivedMessage, ModifiedMessage
 
 
 class ISocialPlatform(ABC):
 
     @abstractmethod
-    def sendMessage(self, to_user: User, message: str) -> bool: pass
+    def sendMessage(self, thread: Thread, message: str) -> bool: pass
 
     @abstractmethod
     def getNewMessages(self) -> List[ReceivedMessageBatch]: pass
@@ -22,11 +22,14 @@ class ISocialPlatform(ABC):
 class IDatabase(ABC):
 
     @abstractmethod
-    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage]): pass
+    def addEntities(self, entities: List[User] | List[ReceivedMessage] | List[ModifiedMessage] | List[Thread]): pass
 
     # fetches a user from the database
     @abstractmethod
     def fetchUser(self, user_id: str) -> Optional[User]: pass
+
+    @abstractmethod
+    def fetchThread(self, thread_id: str) -> Optional[Thread]: pass
 
     @abstractmethod
     def fetchReceivedMessage(self, message_id: str) -> Optional[ReceivedMessage]: pass
@@ -36,11 +39,11 @@ class IDatabase(ABC):
 
     # returns all unprocessed received messages from the given user
     @abstractmethod
-    def unprocessedMessagesFrom(self, user: User) -> List[ReceivedMessage]: pass
+    def unprocessedMessagesOnThread(self, thread: Thread) -> List[ReceivedMessage]: pass
 
     # returns all messages that were not yet sent to user
     @abstractmethod
-    def unsentMessagesTo(self, to: User) -> List[ModifiedMessage]: pass
+    def unsentMessagesOnThread(self, thread: Thread) -> List[ModifiedMessage]: pass
 
     # marks message processed
     @abstractmethod
@@ -49,17 +52,17 @@ class IDatabase(ABC):
     @abstractmethod
     def markMessageSent(self, message: ModifiedMessage): pass
 
-    # matches a user with another user
+    # paires a user with another user
     @abstractmethod
-    def matchUsers(self, user1: User, user2: User): pass
+    def pairThreads(self, thread_1: Thread, thread_2: Thread): pass
 
-    # fetches all users that are candidates for matching with the given user
+    # fetches all users that are candidates for pairing with the given user
     @abstractmethod
-    def matchCandidatesOf(self, user_id: str) -> List[User]: pass
+    def pairCandidatesOf(self, thread_id: str) -> List[Thread]: pass
 
-    # fetches all users that have a match from the database
+    # fetches all users that have a pair from the database
     @abstractmethod
-    def matchedUsers(self) -> List[User]: pass
+    def pairedThreads(self) -> List[Thread]: pass
 
     # fetches user from thread id
     @abstractmethod
@@ -83,20 +86,20 @@ class IPortal(ABC):
 
     ############################## Methods to override ##############################
 
-    # tries to find a match for the given user
-    # it should fetch the messages of user and each match candidate from the database
+    # tries to find a pair for the given thread
+    # it should fetch the messages of thread and each pair candidate from the database
     # and find the most conversation-compatible ones using some algorithm (e.g. AI)
     @abstractmethod
-    def _bestMatchOf(self, user: User) -> Optional[User]: pass
+    def _bestPairOf(self, thread: Thread) -> Optional[Thread]: pass
 
-    # processes the message sent to this.user before being forwarded to the sender's match
-    # this is necessary, e.g. when this.user is a woman but sender and the match are men
+    # processes the message sent to thread before being forwarded to the sender's pair
+    # this is necessary, e.g. when this.user is a woman but sender and the pair are men
     # e.g. the message is "how does a girl like you find herself on this app?"
-    # the message forwarded to the match should be "how does a guy like you find himself on this app?"
+    # the message forwarded to the pair should be "how does a guy like you find himself on this app?"
     @abstractmethod
-    def _modifyUnsentMessages(self, messages: List[ReceivedMessage], from_user: User, to_user) -> List[ModifiedMessage]: pass
+    def _modifyUnsentMessages(self, messages: List[ReceivedMessage], from_thraed: Thread, to_thread: Thread) -> List[ModifiedMessage]: pass
 
     # decides whether the messages are ready to be processed / modified
     # this can be useful when waiting for additional context when receiving messages
     @abstractmethod
-    def _messagesReadyToBeProcessed(self, messages: List[ReceivedMessage], from_user: User, to_user: User) -> bool: pass
+    def _messagesReadyToBeProcessed(self, messages: List[ReceivedMessage], from_thread: Thread, to_thread: Thread) -> bool: pass

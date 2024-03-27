@@ -9,28 +9,33 @@ class Base(DeclarativeBase):
 
 class User(Base):
     __tablename__ = "user"
-    # external ids
     id: Mapped[str] = mapped_column(primary_key=True)
-    thread_id: Mapped[str] = mapped_column(unique=True)
     # user info
     username: Mapped[str] = mapped_column(nullable=True)
-    full_name: Mapped[str] = mapped_column(nullable=True) # not obtainable with instagrapi
+    full_name: Mapped[str] = mapped_column(nullable=True)
     gender: Mapped[bool] = mapped_column(nullable=True)
-    match_id: Mapped[str] = mapped_column(ForeignKey('user.id'), nullable=True, unique=True)
-    # relationships
-    match: Mapped["User"] = relationship("User", remote_side=[id], uselist=False)
-    # flags
-    via_init: bool = False
+    platform: Mapped[str] = mapped_column(nullable=True) # platform on which this user operates
 
-    def __init__(self, id: str, thread_id: str, **kwargs):
-        super().__init__(id=id, thread_id=thread_id, **kwargs)
-        self.via_init = True # this is used to distinguish between users created by the database and users created by the portal
+    def __init__(self, id: str, **kwargs):
+        super().__init__(id=id, **kwargs)
+
+class Thread(Base):
+    __tablename__ = "thread"
+    # external ids
+    id: Mapped[str] = mapped_column(primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), unique=True)
+    pair_id: Mapped[str] = mapped_column(ForeignKey('thread.id'), nullable=True, unique=True)
+    # relationships
+    pair: Mapped["Thread"] = relationship("Thread", remote_side=[id], uselist=False)
+
+    def __init__(self, id: str, user_id: str, **kwargs):
+        super().__init__(id=id, user_id=user_id, **kwargs)
 
 class Message(Base):
     __tablename__ = "message"
     # external ids
     id: Mapped[str] = mapped_column(primary_key=True)
-    thread_id: Mapped[str] = mapped_column()
+    thread_id: Mapped[str] = mapped_column(ForeignKey('thread.id'))
     # message info
     content: Mapped[str] = mapped_column()
     timestamp: Mapped[float] = mapped_column()
