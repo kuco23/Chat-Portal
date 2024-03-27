@@ -23,7 +23,7 @@ class Thread(Base):
     __tablename__ = "thread"
     # external ids
     id: Mapped[str] = mapped_column(primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'), unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
     pair_id: Mapped[str] = mapped_column(ForeignKey('thread.id'), nullable=True, unique=True)
     # relationships
     pair: Mapped["Thread"] = relationship("Thread", remote_side=[id], uselist=False)
