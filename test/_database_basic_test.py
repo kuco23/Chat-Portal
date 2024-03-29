@@ -1,5 +1,5 @@
-from .._entities import User, Thread, ReceivedMessage, ModifiedMessage
-from .. import Database
+from chat_portal._entities import User, Thread, ReceivedMessage, ModifiedMessage
+from chat_portal import Database
 
 database = Database("sqlite+pysqlite:///:memory:")
 

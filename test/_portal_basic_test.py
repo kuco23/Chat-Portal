@@ -1,8 +1,8 @@
 from typing import List
-from ..interface import ISocialPlatform
-from .._entities import User, Thread, ReceivedMessage
-from .._models import ReceivedMessageBatch
-from .. import Portal, Database
+from chat_portal.interface import ISocialPlatform
+from chat_portal._entities import User, Thread, ReceivedMessage
+from chat_portal._models import ReceivedMessageBatch
+from chat_portal import Portal, Database
 
 
 class MySocialPlatform(ISocialPlatform):
