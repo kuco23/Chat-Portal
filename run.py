@@ -3,7 +3,9 @@ from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
 from sqlalchemy_utils import database_exists
-from chat_portal import Database, Instagram, GptPortal
+from chat_portal import Database
+from chat_portal.platforms import Instagram
+from chat_portal.portals import GptPortal
 
 
 def extract_field_names(format_string):

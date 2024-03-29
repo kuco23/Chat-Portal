@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chat-portal"
-version = "0.2.0"
+version = "0.2.1"
 description = "Pair a profile's message contacts and transport modified messages that pretend to come from the initial profile"
 authors = ["kuco23 <nseverkar@gmail.com>"]
 license = "MIT"
@@ -13,8 +13,6 @@ python-dotenv = "1.0.0"
 SQLAlchemy = "2.0.23"
 SQLAlchemy-Utils = "0.41.1"
 openai = "1.6.1"
-Pillow = "10.1.0"
-instagrapi = "^2.1.1"
 
 [build-system]
 requires = ["poetry-core"]

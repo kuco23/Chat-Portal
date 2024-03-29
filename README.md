@@ -17,6 +17,9 @@ Follow the below steps to set up this project:
 
 Note that you can also modify the default configuration parameters inside `config.cfg`
 
+> **WARN**
+> The package ships without the `instagrapi` dependency. If using this package with it, you need to install it manually with `pip install instagrapi`.
+
 ## Use as package
 
 To use this project as a package in your own project, you can install it with `pip install chat-portal`.

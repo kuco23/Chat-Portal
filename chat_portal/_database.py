@@ -5,6 +5,7 @@ from sqlalchemy_utils import database_exists, create_database
 from ._entities import Base, User, Thread, Message, ModifiedMessage, ReceivedMessage
 from .interface import IDatabase
 
+
 class Database(IDatabase):
     engine: Engine
 

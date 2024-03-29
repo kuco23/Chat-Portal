@@ -39,6 +39,7 @@ class Message(Base):
     # message info
     content: Mapped[str] = mapped_column()
     timestamp: Mapped[float] = mapped_column()
+    modified: Mapped[bool] = mapped_column()
 
 class ReceivedMessage(Message):
     __tablename__ = "received_message"
@@ -46,7 +47,8 @@ class ReceivedMessage(Message):
     processed: Mapped[bool] = mapped_column(default=False)
 
     def __init__(self, id: str, thread_id: str, content: str, timestamp: float, **kwargs):
-        super().__init__(id=id, thread_id=thread_id, content=content, timestamp=timestamp, processed=False, **kwargs)
+        super().__init__(id=id, thread_id=thread_id, content=content,
+            timestamp=timestamp, processed=False, modified=False, **kwargs)
 
 class ModifiedMessage(Message):
     __tablename__ = "modified_message"
@@ -57,4 +59,5 @@ class ModifiedMessage(Message):
     def __init__(self, original_id: str, thread_id: str, content: str, timestamp: float, **kwargs):
         # ideally each modified message would have their own original_id
         id = sha256((original_id + str(randint(0, 2**32))).encode()).hexdigest()
-        super().__init__(id=id, original_id=original_id, thread_id=thread_id, content=content, timestamp=timestamp, sent=False, **kwargs)
+        super().__init__(id=id, original_id=original_id, thread_id=thread_id,
+            content=content, timestamp=timestamp, sent=False, modified=True, **kwargs)

@@ -2,7 +2,8 @@ from typing import List
 from ..interface import ISocialPlatform
 from .._entities import User, Thread, ReceivedMessage
 from .._models import ReceivedMessageBatch
-from .. import Database, GptPortal
+from .. import Database
+from ..portals import GptPortal
 
 sys_prompt = '''
 Imagine you are a 60 year old woman named Sasha in the middle of an Instagram conversation. \
