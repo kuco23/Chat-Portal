@@ -1,4 +1,5 @@
-import string, os
+import string
+from os import getenv
 from time import sleep
 from configparser import ConfigParser
 from dotenv import load_dotenv
@@ -25,15 +26,15 @@ MID_RUN_SLEEP = int(config["PROGRAM"]["MID_RUN_SLEEP_SECONDS"])
 PROMPT_TEMPLATE_PATH = config["PROGRAM"]["PROMPT_TEMPLATE_PATH"]
 
 # read environment variables
-INSTAGRAM_USERNAME = os.getenv("INSTAGRAM_USERNAME")
-INSTAGRAM_PASSWORD = os.getenv("INSTAGRAM_PASSWORD")
+INSTAGRAM_USERNAME = getenv("INSTAGRAM_USERNAME")
+INSTAGRAM_PASSWORD = getenv("INSTAGRAM_PASSWORD")
 if INSTAGRAM_USERNAME is None or INSTAGRAM_PASSWORD is None:
     raise Exception("Instagram username and password must be set in .env")
 
 # format system prompt
 SYSTEM_PROMPT = open(PROMPT_TEMPLATE_PATH, 'r').read()
 field_names = extract_field_names(SYSTEM_PROMPT)
-SYSTEM_PROMPT = SYSTEM_PROMPT.format(**{name: os.getenv(name) for name in field_names})
+SYSTEM_PROMPT = SYSTEM_PROMPT.format(**{name: getenv(name) for name in field_names})
 
 # check if this is the first time script is being run
 FIRST_SCRIPT_RUN = not database_exists(DATABASE_URL)
