@@ -8,7 +8,7 @@ class Base(DeclarativeBase):
     pass
 
 class User(Base):
-    __tablename__ = "user"
+    __tablename__ = "users"
     id: Mapped[str] = mapped_column(primary_key=True)
     # user info
     username: Mapped[str] = mapped_column(nullable=True)
@@ -20,11 +20,11 @@ class User(Base):
         super().__init__(id=id, **kwargs)
 
 class Thread(Base):
-    __tablename__ = "thread"
+    __tablename__ = "threads"
     # external ids
     id: Mapped[str] = mapped_column(primary_key=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey('user.id'))
-    pair_id: Mapped[str] = mapped_column(ForeignKey('thread.id'), nullable=True, unique=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    pair_id: Mapped[str] = mapped_column(ForeignKey('threads.id'), nullable=True, unique=True)
     # relationships
     pair: Mapped["Thread"] = relationship("Thread", remote_side=[id], uselist=False)
 
@@ -32,18 +32,18 @@ class Thread(Base):
         super().__init__(id=id, user_id=user_id, **kwargs)
 
 class Message(Base):
-    __tablename__ = "message"
+    __tablename__ = "messages"
     # external ids
     id: Mapped[str] = mapped_column(primary_key=True)
-    thread_id: Mapped[str] = mapped_column(ForeignKey('thread.id'))
+    thread_id: Mapped[str] = mapped_column(ForeignKey('threads.id'))
     # message info
     content: Mapped[str] = mapped_column()
     timestamp: Mapped[float] = mapped_column()
     modified: Mapped[bool] = mapped_column()
 
 class ReceivedMessage(Message):
-    __tablename__ = "received_message"
-    id: Mapped[str] = mapped_column(ForeignKey("message.id"), primary_key=True)
+    __tablename__ = "received_messages"
+    id: Mapped[str] = mapped_column(ForeignKey("messages.id"), primary_key=True)
     processed: Mapped[bool] = mapped_column(default=False)
 
     def __init__(self, id: str, thread_id: str, content: str, timestamp: float, **kwargs):
@@ -51,10 +51,10 @@ class ReceivedMessage(Message):
             timestamp=timestamp, processed=False, modified=False, **kwargs)
 
 class ModifiedMessage(Message):
-    __tablename__ = "modified_message"
-    id: Mapped[str] = mapped_column(ForeignKey("message.id"), primary_key=True)
+    __tablename__ = "modified_messages"
+    id: Mapped[str] = mapped_column(ForeignKey("messages.id"), primary_key=True)
     sent: Mapped[bool] = mapped_column(default=False)
-    original_id: Mapped[str] = mapped_column(ForeignKey('received_message.id'))
+    original_id: Mapped[str] = mapped_column(ForeignKey('received_messages.id'))
 
     def __init__(self, original_id: str, thread_id: str, content: str, timestamp: float, **kwargs):
         # ideally each modified message would have their own original_id
