@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "chat-portal"
-version = "0.2.5"
+version = "0.2.6"
 description = "Pair a profile's message contacts and transport modified messages that pretend to come from the initial profile"
 authors = ["kuco23 <nseverkar@gmail.com>"]
 license = "MIT"
