@@ -5,7 +5,7 @@ from pathlib import Path
 import logging
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+load_dotenv('.env', override=True)
 
 LOG_LEVEL = int(getenv("CHAT_PORTAL_LOG_LEVEL", 100))
 LOG_STDOUT = getenv("CHAT_PORTAL_LOG_STDOUT", False)
