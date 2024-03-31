@@ -21,12 +21,12 @@ class AbstractPortal(IPortal):
         batches = self.social_platform.getOldMessages()
         self.receiveMessageBatches(batches)
 
-    def receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
+    def _receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
         for batch in batches:
             self.receiveMessageBatch(batch)
 
     # think before changing the order of the method's function calls
-    def receiveMessageBatch(self, batch: ReceivedMessageBatch):
+    def _receiveMessageBatch(self, batch: ReceivedMessageBatch):
         if len(batch.messages) == 0: return
         # redefine objects with the actual db entity!
         thread, user = self._fetchOrCreateThreadAndUserEntities(batch.thread, batch.user)
@@ -143,11 +143,11 @@ class Portal(AbstractPortal):
 
     @exceptWrapper
     def receiveMessageBatches(self, batches: List[ReceivedMessageBatch]):
-        super().receiveMessageBatches(batches)
+        super()._receiveMessageBatches(batches)
 
     @exceptWrapper
     def receiveMessageBatch(self, batch: ReceivedMessageBatch):
-        super().receiveMessageBatch(batch)
+        super()._receiveMessageBatch(batch)
 
     def _bestPairOf(self, thread: Thread) -> Optional[Thread]:
         for test_pair in self.database.pairCandidatesOf(thread.id):

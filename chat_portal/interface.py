@@ -103,3 +103,11 @@ class IPortal(ABC):
     # this can be useful when waiting for additional context when receiving messages
     @abstractmethod
     def _messagesReadyToBeProcessed(self, messages: List[ReceivedMessage], from_thread: Thread, to_thread: Thread) -> bool: pass
+
+    ############################## Really fucking abstract ##########################
+
+    @abstractmethod
+    def receiveMessageBatches(self, batches: List[ReceivedMessageBatch]): pass
+
+    @abstractmethod
+    def receiveMessageBatch(self, batch: ReceivedMessageBatch): pass
