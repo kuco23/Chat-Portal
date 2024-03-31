@@ -1,9 +1,14 @@
+from sys import stdout
 from os import getenv
 from datetime import datetime
 from pathlib import Path
 import logging
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 LOG_LEVEL = int(getenv("CHAT_PORTAL_LOG_LEVEL", 100))
+LOG_STDOUT = getenv("CHAT_PORTAL_LOG_STDOUT", False)
 
 if LOG_LEVEL <= 50:
     # create log directory if not exists
@@ -18,8 +23,10 @@ else:
 # create chat portal logger
 logger = logging.getLogger("Chat Portal")
 logger.setLevel(LOG_LEVEL)
-# create file handler which logs even debug messages
-fh = logging.FileHandler(str(log_path))
-fh.setLevel(logging.DEBUG)
-fh.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-logger.addHandler(fh)
+if LOG_STDOUT:
+    handler = logging.StreamHandler(stdout)
+else:
+    handler = logging.FileHandler(str(log_path))
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
